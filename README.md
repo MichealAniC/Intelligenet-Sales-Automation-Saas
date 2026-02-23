@@ -3,7 +3,7 @@
 
 ---
 
-##  1.Project Overview
+## 1. Project Overview
 
 The **Intelligent Sales Automation SaaS** is a web-based system designed to automate lead management using machine learning.
 
@@ -39,7 +39,7 @@ This project introduces:
 - SaaS-Based Multi-User Architecture  
 
 ---
-## 2.Core Features
+## 2. Core Features
 
 ### 1️⃣ Intelligent Lead Scoring
 - Uses ML model to predict conversion probability
@@ -103,7 +103,7 @@ The Intelligent Sales Automation SaaS is built using a modern, scalable, and mod
 - **Render / Railway / AWS** – Cloud hosting and deployment  
 This stack ensures that the system remains scalable, maintainable, secure, and capable of handling intelligent automation at scale.
 ---
-## 5. System Architecture Overview
+## 4. System Architecture Overview
 The Intelligent Sales Automation SaaS adopts a **modular multi-tier architecture** that separates user interaction, business logic, machine learning intelligence, and data storage. This structured separation ensures **scalability, maintainability, and system flexibility**, while allowing both technical and non-technical stakeholders to clearly understand how the system operates.
 
 At the **Client Layer**, users such as Sales Administrators and Sales Agents access the system through a web-based dashboard. This interface enables:
@@ -200,7 +200,7 @@ I --> E
 E --> A
 E --> B
 ```
-## 8. System Flow (Runtime Behavior)
+## 5. System Flow (Runtime Behavior)
 
 ```mermaid
 sequenceDiagram
@@ -224,7 +224,7 @@ sequenceDiagram
     Frontend->>User: Display Real-Time Analytics & Lead Assignment
 ```
 
-## 9. Data Flow Diagram (DFD) – Level 1
+## 6. Data Flow Diagram (DFD) – Level 1
 
 ```mermaid
 flowchart TD
@@ -250,3 +250,147 @@ flowchart TD
     D1 -->|"Retrieve Analytics Data"| P4
     P4 -->|"Display Dashboard & Insights"| User
 ```
+## 7. Database Design
+
+The system uses a **relational database** (PostgreSQL / MySQL) to store users, leads, prediction scores, lead categories, and assignment history. The database is designed to ensure **data integrity, scalability, and traceability**.
+
+---
+
+### Users Table
+
+| Column      | Type      | Description                     |
+|------------|-----------|---------------------------------|
+| id         | INTEGER   | Primary Key                     |
+| name       | VARCHAR   | Full Name of the User           |
+| email      | VARCHAR   | Unique Email Address            |
+| password   | VARCHAR   | Hashed Password                 |
+| role       | ENUM      | Role of the User (Admin / Sales)|
+| created_at | TIMESTAMP | Account Creation Timestamp      |
+
+---
+
+### Leads Table
+
+| Column Name           | Data Type | Description |
+|-----------------------|-----------|-------------|
+| Lead ID               | VARCHAR   | Unique Key (e.g., L-1024) |
+| First Name            | VARCHAR   | Lead's First Name |
+| Last Name             | VARCHAR   | Lead's Last Name |
+| Job Title             | VARCHAR   | Official Title (e.g., VP of Sales) |
+| Seniority Level       | ENUM      | Bucket (C-suite, VP, Director, Manager, etc.) |
+| Email                 | VARCHAR   | Business Email |
+| Phone Number          | VARCHAR   | Contact Number |
+| Country               | VARCHAR   | Location |
+| Company Name          | VARCHAR   | Name of the organization |
+| Company Industry      | VARCHAR   | Sector (SaaS, Finance, Consulting, etc.) |
+| Company Size Category | ENUM      | Bucket (Startup, Enterprise, etc.) |
+| Company Size Range    | VARCHAR   | Numeric range (e.g., 1000+) |
+| Lead Source           | ENUM      | Attribution (Webinar, LinkedIn, Referral, etc.) |
+| Date Captured         | DATE      | When they entered the system (automatically captured) |
+
+---
+
+### Assignments Table
+
+| Column     | Type    | Description                       |
+|-----------|---------|-----------------------------------|
+| id        | INTEGER | Primary Key                       |
+| lead_id   | VARCHAR | Reference to Leads Table (Lead ID)|
+| user_id   | INTEGER | Reference to Users Table           |
+| action    | TEXT    | Workflow Action Taken              |
+| timestamp | TIMESTAMP | Action Execution Time             |
+
+---
+
+### Analytics Table (Optional / Aggregated Data)
+
+| Column         | Type     | Description                         |
+|----------------|----------|-------------------------------------|
+| id             | INTEGER  | Primary Key                         |
+| lead_id        | VARCHAR  | Reference to Leads Table            |
+| score          | FLOAT    | Prediction Score                    |
+| category       | TEXT     | Lead Category                        |
+| assigned_to    | INTEGER  | Sales Agent ID                       |
+| conversion_status | TEXT  | Converted / Not Converted            |
+| processed_at   | TIMESTAMP | Time of Scoring / Assignment        |
+
+---
+
+### Database ER Diagram
+
+```mermaid
+erDiagram
+    USERS {
+        INTEGER id PK
+        VARCHAR name
+        VARCHAR email
+        VARCHAR password
+        ENUM role
+        TIMESTAMP created_at
+    }
+
+    LEADS {
+        VARCHAR lead_id PK
+        VARCHAR first_name
+        VARCHAR last_name
+        VARCHAR job_title
+        ENUM seniority_level
+        VARCHAR email
+        VARCHAR phone_number
+        VARCHAR country
+        VARCHAR company_name
+        VARCHAR company_industry
+        ENUM company_size_category
+        VARCHAR company_size_range
+        ENUM lead_source
+        DATE date_captured
+    }
+
+    ASSIGNMENTS {
+        INTEGER id PK
+        VARCHAR lead_id FK
+        INTEGER user_id FK
+        TEXT action
+        TIMESTAMP timestamp
+    }
+
+    ANALYTICS {
+        INTEGER id PK
+        VARCHAR lead_id FK
+        FLOAT score
+        TEXT category
+        INTEGER assigned_to
+        TEXT conversion_status
+        TIMESTAMP processed_at
+    }
+
+    USERS ||--o{ ASSIGNMENTS : "assigned to"
+    LEADS ||--o{ ASSIGNMENTS : "linked to"
+    LEADS ||--o{ ANALYTICS : "analyzed in"
+```
+
+## 8. Roles & Permissions
+
+| Role  | Description                     | Permissions / Access Rights |
+|-------|---------------------------------|----------------------------|
+| Admin | Full system administrator       | - View all leads and analytics<br>- Assign leads to any sales agent<br>- Manage users (add, edit, remove)<br>- Configure workflows and system settings<br>- Access all dashboards and reports |
+| Sales | Sales team member / agent       | - View assigned leads only<br>- Update lead status and perform workflow actions<br>- Access personal dashboard and performance analytics<br>- Cannot manage other users or system settings |
+
+## 9. Evaluation Metrics
+To ensure the Intelligent Sales Automation SaaS performs effectively, the system is evaluated using both **machine learning metrics** and **business-focused metrics**.
+### Machine Learning Metrics
+These metrics assess how accurately the system predicts lead conversion:
+- **Accuracy**: Proportion of correctly predicted lead outcomes (converted / not converted).  
+- **Precision**: Fraction of leads predicted as high-conversion that actually converted.  
+- **Recall (Sensitivity)**: Fraction of actual converted leads that were correctly identified.  
+- **F1 Score**: Harmonic mean of precision and recall; balances false positives and false negatives.  
+- **ROC-AUC**: Measures the ability of the model to distinguish between converted and non-converted leads.  
+
+### Business / Functional Metrics
+These metrics measure system effectiveness from a sales perspective:
+- **Lead Conversion Rate**: Percentage of leads successfully converted into customers.  
+- **Average Response Time**: Time taken for the system to assign leads and initiate workflows.  
+- **Lead Assignment Accuracy**: Percentage of leads routed to the appropriate agent based on score and workflow rules.  
+- **User Engagement**: Frequency and activity of Sales Agents interacting with the system and dashboards.  
+
+By combining ML performance metrics with business-oriented KPIs, the system can be **continuously monitored and optimized** to improve lead prioritization, automation efficiency, and overall sales effectiveness.
