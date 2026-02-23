@@ -1,0 +1,50 @@
+# ================================
+# Intelligent Sales Automation SaaS
+# Core Requirements
+# ================================
+
+# --------------------------------
+# 1. Python & Core
+# --------------------------------
+python >=3.10
+pip >=23.0
+
+# --------------------------------
+# 2. Backend / API
+# --------------------------------
+fastapi                # Core API framework
+uvicorn[standard]      # ASGI server for running FastAPI
+pydantic               # Data validation for API models
+python-dotenv          # Environment variable management
+
+# --------------------------------
+# 3. Database & ORM
+# --------------------------------
+psycopg2-binary        # PostgreSQL driver
+mysql-connector-python # MySQL driver if using MySQL
+SQLAlchemy             # ORM for database models
+alembic                # Database migrations
+
+# --------------------------------
+# 4. Machine Learning / Data Processing
+# --------------------------------
+pandas                 # Data manipulation
+numpy                  # Numerical computing
+scikit-learn           # Lead scoring ML models
+joblib                 # Model serialization / saving
+
+# --------------------------------
+# 5. Security & Authentication
+# --------------------------------
+passlib[bcrypt]        # Password hashing
+python-jose[cryptography]  # JWT creation and verification
+
+# --------------------------------
+# 6. Utilities
+# --------------------------------
+python-multipart       # File upload handling (CSV)
+email-validator        # Email validation
+python-dateutil        # Parsing dates
+loguru                 # Logging
+requests               # HTTP requests
+httpx                  # Async HTTP client
