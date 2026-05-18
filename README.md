@@ -281,22 +281,14 @@ The database structure separates:
 
 This separation improves database normalization and ensures a clean architecture between the machine learning layer and sales operations layer.
 
----
-
-# Core Database Tables
-
+### Core Database Tables
 1. Users Table
 2. Leads Table
 3. Lead Scores Table
 4. Lead Assignments Table
 
----
-
-## Users Table
-
-Stores authenticated system users including administrators, managers, and sales representatives.
-
 ### Users Table
+Stores authenticated system users including administrators, managers, and sales representatives.
 
 | Column Name | Data Type | Description |
 |---|---|---|
@@ -308,13 +300,8 @@ Stores authenticated system users including administrators, managers, and sales 
 | role | ENUM | User role (Admin, Manager, Sales Rep) |
 | created_at | TIMESTAMP | Account creation timestamp |
 
----
-
-## Leads Table
-
-Stores lead information and machine learning features used for predictive lead scoring.
-
 ### Leads Table
+Stores lead information and machine learning features used for predictive lead scoring.
 
 | Column Name | Data Type | Description |
 |---|---|---|
@@ -340,24 +327,16 @@ Stores lead information and machine learning features used for predictive lead s
 | email_open_rate | FLOAT | Percentage of marketing emails opened |
 | email_click_rate | FLOAT | Percentage of email links clicked |
 | webinar_attendance | BOOLEAN | Indicates whether the lead attended a webinar |
-| demo_requested | BOOLEAN | Indicates whether the lead requested a product demo |
-| content_downloads | INTEGER | Number of downloadable resources accessed |
 | last_interaction_days | INTEGER | Number of days since the last interaction |
 | meeting_scheduled | BOOLEAN | Indicates whether a sales meeting was scheduled |
-| follow_up_response | ENUM | Response status after follow-up (Positive, Neutral, Negative, No Response) |
+| follow_up_status | ENUM | Response status after follow-up (Positive, Neutral, Negative, No Response) |
 | estimated_budget | ENUM | Estimated purchasing budget (Low, Medium, High) |
 | purchase_timeline | ENUM | Expected purchase timeframe (Immediate, 1-3 Months, 3-6 Months, Future) |
-| lead_status | ENUM | Current sales pipeline stage (New, Contacted, Qualified, Proposal, Closed) |
 | converted | BOOLEAN | Target label indicating whether the lead became a customer |
 | created_at | TIMESTAMP | Record creation timestamp |
 
----
-
-## Lead Scores Table
-
-Stores machine learning prediction results and generated lead scores.
-
 ### Lead Scores Table
+Stores machine learning prediction results and generated lead scores.
 
 | Column Name | Data Type | Description |
 |---|---|---|
@@ -373,10 +352,7 @@ Stores machine learning prediction results and generated lead scores.
 ---
 
 ## Lead Assignments Table
-
 Stores post-prediction lead assignment and sales workflow information.
-
-### Lead Assignments Table
 
 | Column Name | Data Type | Description |
 |---|---|---|
@@ -388,20 +364,16 @@ Stores post-prediction lead assignment and sales workflow information.
 | assignment_status | ENUM | Assignment status (Assigned, In Progress, Completed) |
 | assignment_date | TIMESTAMP | Date and time of assignment |
 
----
 
-# Database Relationships
-
+### Database Relationships
 | Parent Table | Child Table | Relationship |
 |---|---|---|
 | users | lead_assignments | One-to-Many |
 | leads | lead_scores | One-to-Many |
 | leads | lead_assignments | One-to-Many |
 
----
 
-# Database Workflow
-
+### Database Workflow
 The database workflow follows the machine learning pipeline of the system.
 
 ```text
@@ -420,9 +392,7 @@ Lead Categorization
 Lead Assignment
 ```
 
----
-
-# Machine Learning Data Usage
+### Machine Learning Data Usage
 
 The **Leads Table** serves as the primary machine learning dataset.
 
@@ -444,11 +414,13 @@ This architecture separates machine learning prediction from operational sales w
 
 ```mermaid
 erDiagram
+
     USERS {
-        INTEGER id PK
-        VARCHAR name
+        UUID id PK
+        VARCHAR staff_id
+        VARCHAR full_name
         VARCHAR email
-        VARCHAR password
+        VARCHAR password_hash
         ENUM role
         TIMESTAMP created_at
     }
@@ -457,42 +429,59 @@ erDiagram
         VARCHAR lead_id PK
         VARCHAR first_name
         VARCHAR last_name
-        VARCHAR job_title
-        ENUM seniority_level
         VARCHAR email
         VARCHAR phone_number
+        VARCHAR job_title
+        ENUM seniority_level
+        VARCHAR department
         VARCHAR country
         VARCHAR company_name
         VARCHAR company_industry
         ENUM company_size_category
         VARCHAR company_size_range
+        DECIMAL estimated_annual_revenue
         ENUM lead_source
         DATE date_captured
+        INTEGER website_visits
+        INTEGER pages_viewed
+        FLOAT average_time_on_site
+        FLOAT email_open_rate
+        FLOAT email_click_rate
+        BOOLEAN webinar_attendance
+        INTEGER last_interaction_days
+        BOOLEAN meeting_scheduled
+        ENUM follow_up_status
+        ENUM estimated_budget
+        ENUM purchase_timeline
+        BOOLEAN converted
+        TIMESTAMP created_at
     }
 
-    ASSIGNMENTS {
-        INTEGER id PK
+    LEAD_SCORES {
+        UUID score_id PK
         VARCHAR lead_id FK
-        INTEGER user_id FK
-        TEXT action
-        TIMESTAMP timestamp
+        INTEGER score_value
+        ENUM score_category
+        FLOAT prediction_probability
+        BOOLEAN prediction_result
+        VARCHAR model_name
+        TIMESTAMP created_at
     }
 
-    ANALYTICS {
-        INTEGER id PK
+    LEAD_ASSIGNMENTS {
+        UUID assignment_id PK
         VARCHAR lead_id FK
-        FLOAT score
-        TEXT category
-        INTEGER assigned_to
-        TEXT conversion_status
-        TIMESTAMP processed_at
+        UUID assigned_to FK
+        UUID assigned_by FK
+        ENUM assignment_priority
+        ENUM assignment_status
+        TIMESTAMP assignment_date
     }
 
-    USERS ||--o{ ASSIGNMENTS : "assigned to"
-    LEADS ||--o{ ASSIGNMENTS : "linked to"
-    LEADS ||--o{ ANALYTICS : "analyzed in"
+    LEADS ||--o{ LEAD_SCORES : generates
+    LEADS ||--o{ LEAD_ASSIGNMENTS : assigned_to
+    USERS ||--o{ LEAD_ASSIGNMENTS : manages
 ```
-
 ## 8. Roles & Permissions
 
 | Role  | Description                     | Permissions / Access Rights |
@@ -511,10 +500,9 @@ These metrics assess how accurately the system predicts lead conversion:
 - **ROC-AUC**: Measures the ability of the model to distinguish between converted and non-converted leads.  
 
 ### Business / Functional Metrics
-These metrics measure system effectiveness from a sales perspective:
-- **Lead Conversion Rate**: Percentage of leads successfully converted into customers.  
-- **Average Response Time**: Time taken for the system to assign leads and initiate workflows.  
-- **Lead Assignment Accuracy**: Percentage of leads routed to the appropriate agent based on score and workflow rules.  
-- **User Engagement**: Frequency and activity of Sales Agents interacting with the system and dashboards.  
-
+These metrics evaluate the effectiveness of the system from a sales and operational perspective:
+- **Lead Conversion Rate**: Measures the percentage of leads successfully converted into customers.
+- **Lead Assignment Efficiency**: Measures how quickly and accurately leads are assigned after prediction and scoring.
+- **Prediction Effectiveness**: Evaluates how well the machine learning model identifies high-potential leads.
+- **User Activity**: Tracks how actively sales representatives interact with assigned leads and system dashboards.
 By combining ML performance metrics with business-oriented KPIs, the system can be **continuously monitored and optimized** to improve lead prioritization, automation efficiency, and overall sales effectiveness.
