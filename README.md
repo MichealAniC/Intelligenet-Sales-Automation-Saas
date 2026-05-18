@@ -120,7 +120,19 @@ The **Backend API Layer** functions as the core control center of the applicatio
 
 This layer ensures secure, structured communication between the frontend interface and the internal intelligence components.
 
-The **Machine Learning Layer** provides the system’s decision-making capability. Incoming lead data undergoes preprocessing and feature transformation before being evaluated by a trained predictive model. The model generates a **conversion probability score**, which is then interpreted by the *Prescriptive Engine*. Based on predefined business thresholds, the engine determines the most appropriate action, such as prioritizing high-intent leads or placing low-intent leads into nurturing workflows.
+The **Machine Learning Layer** serves as the intelligent decision-making component of the system. Incoming lead data is first subjected to preprocessing operations such as data cleaning, feature selection, categorical encoding, and feature transformation to prepare the dataset for prediction. The processed features are then evaluated using a trained **Random Forest Classification Model** to predict the likelihood of lead conversion.
+
+The model generates a **conversion probability score** and corresponding lead classification, indicating whether a lead is likely to convert into a customer. These prediction results are forwarded to the **Prescriptive Engine**, which applies predefined business rules and decision thresholds to determine the most suitable sales action.
+
+Based on the generated lead score and conversion probability, the system can:
+
+- Prioritize high-intent leads for immediate follow-up
+- Assign qualified leads to sales representatives
+- Categorize leads as Hot, Warm, or Cold
+- Route low-intent leads into nurturing workflows
+- Support automated sales decision-making and lead management
+
+This architecture enables intelligent lead prioritization, improves sales efficiency, and supports data-driven customer acquisition strategies.
 
 The **Data Layer** is responsible for persistent storage of all critical system information, including:
 - User accounts and roles  
@@ -252,22 +264,55 @@ flowchart TD
 ```
 ## 7. Database Design
 
-The system uses a **relational database** (PostgreSQL / MySQL) to store users, leads, prediction scores, lead categories, and assignment history. The database is designed to ensure **data integrity, scalability, and traceability**.
+The system uses a **relational database management system (PostgreSQL / MySQL)** to manage users, lead records, machine learning predictions, lead scores, and assignment workflows. The database architecture is designed to support:
+
+- Lead management and tracking
+- Machine learning feature storage
+- Lead scoring and prediction history
+- Sales assignment workflows
+- System scalability and maintainability
+- Data integrity and relational consistency
+
+The database structure separates:
+
+- Core lead data
+- Machine learning prediction data
+- Operational assignment workflows
+
+This separation improves database normalization and ensures a clean architecture between the machine learning layer and sales operations layer.
 
 ---
+
+# Core Database Tables
+
+1. Users Table
+2. Leads Table
+3. Lead Scores Table
+4. Lead Assignments Table
+
+---
+
+## Users Table
+
+Stores authenticated system users including administrators, managers, and sales representatives.
 
 ### Users Table
 
-| Column      | Type      | Description                     |
-|------------|-----------|---------------------------------|
-| id         | INTEGER   | Primary Key                     |
-| name       | VARCHAR   | Full Name of the User           |
-| email      | VARCHAR   | Unique Email Address            |
-| password   | VARCHAR   | Hashed Password                 |
-| role       | ENUM      | Role of the User (Admin / Sales)|
-| created_at | TIMESTAMP | Account Creation Timestamp      |
+| Column Name | Data Type | Description |
+|---|---|---|
+| id | UUID | Primary key |
+| staff_id | VARCHAR | Unique staff identifier (e.g., ADM-001, MGR-101, SAL-205) |
+| full_name | VARCHAR | Full name of the user |
+| email | VARCHAR | Unique email address |
+| password_hash | VARCHAR | Encrypted password |
+| role | ENUM | User role (Admin, Manager, Sales Rep) |
+| created_at | TIMESTAMP | Account creation timestamp |
 
 ---
+
+## Leads Table
+
+Stores lead information and machine learning features used for predictive lead scoring.
 
 ### Leads Table
 
@@ -280,7 +325,7 @@ The system uses a **relational database** (PostgreSQL / MySQL) to store users, l
 | phone_number | VARCHAR | Contact phone number |
 | job_title | VARCHAR | Official professional role of the lead |
 | seniority_level | ENUM | Organizational level (C-Suite, VP, Director, Manager, Staff, etc.) |
-| department | VARCHAR | Department of the lead (Sales, Marketing, IT, HR, etc.) |
+| department | VARCHAR | Department of the lead |
 | country | VARCHAR | Lead’s country or region |
 | company_name | VARCHAR | Name of the organization |
 | company_industry | VARCHAR | Industry sector of the company |
@@ -297,43 +342,102 @@ The system uses a **relational database** (PostgreSQL / MySQL) to store users, l
 | webinar_attendance | BOOLEAN | Indicates whether the lead attended a webinar |
 | demo_requested | BOOLEAN | Indicates whether the lead requested a product demo |
 | content_downloads | INTEGER | Number of downloadable resources accessed |
-| chatbot_interactions | INTEGER | Number of chatbot conversations initiated |
-| previous_interactions | INTEGER | Total number of previous engagements with the company |
 | last_interaction_days | INTEGER | Number of days since the last interaction |
 | meeting_scheduled | BOOLEAN | Indicates whether a sales meeting was scheduled |
 | follow_up_response | ENUM | Response status after follow-up (Positive, Neutral, Negative, No Response) |
 | estimated_budget | ENUM | Estimated purchasing budget (Low, Medium, High) |
 | purchase_timeline | ENUM | Expected purchase timeframe (Immediate, 1-3 Months, 3-6 Months, Future) |
 | lead_status | ENUM | Current sales pipeline stage (New, Contacted, Qualified, Proposal, Closed) |
-| lead_score | INTEGER | Internal lead quality score generated by the system |
 | converted | BOOLEAN | Target label indicating whether the lead became a customer |
+| created_at | TIMESTAMP | Record creation timestamp |
 
 ---
 
-### Assignments Table
+## Lead Scores Table
 
-| Column     | Type    | Description                       |
-|-----------|---------|-----------------------------------|
-| id        | INTEGER | Primary Key                       |
-| lead_id   | VARCHAR | Reference to Leads Table (Lead ID)|
-| user_id   | INTEGER | Reference to Users Table           |
-| action    | TEXT    | Workflow Action Taken              |
-| timestamp | TIMESTAMP | Action Execution Time             |
+Stores machine learning prediction results and generated lead scores.
+
+### Lead Scores Table
+
+| Column Name | Data Type | Description |
+|---|---|---|
+| score_id | UUID | Primary key |
+| lead_id | VARCHAR | Reference to related lead |
+| score_value | INTEGER | Generated lead score |
+| score_category | ENUM | Lead category (Hot, Warm, Cold) |
+| prediction_probability | FLOAT | Predicted conversion probability |
+| prediction_result | BOOLEAN | Predicted conversion outcome |
+| model_name | VARCHAR | Machine learning algorithm used |
+| created_at | TIMESTAMP | Prediction generation timestamp |
 
 ---
 
-### Analytics Table (Optional / Aggregated Data)
+## Lead Assignments Table
 
-| Column         | Type     | Description                         |
-|----------------|----------|-------------------------------------|
-| id             | INTEGER  | Primary Key                         |
-| lead_id        | VARCHAR  | Reference to Leads Table            |
-| score          | FLOAT    | Prediction Score                    |
-| category       | TEXT     | Lead Category                        |
-| assigned_to    | INTEGER  | Sales Agent ID                       |
-| conversion_status | TEXT  | Converted / Not Converted            |
-| processed_at   | TIMESTAMP | Time of Scoring / Assignment        |
+Stores post-prediction lead assignment and sales workflow information.
 
+### Lead Assignments Table
+
+| Column Name | Data Type | Description |
+|---|---|---|
+| assignment_id | UUID | Primary key |
+| lead_id | VARCHAR | Reference to related lead |
+| assigned_to | UUID | Assigned sales representative |
+| assigned_by | UUID | Manager or admin assigning the lead |
+| assignment_priority | ENUM | Lead priority level (Hot, Warm, Cold) |
+| assignment_status | ENUM | Assignment status (Assigned, In Progress, Completed) |
+| assignment_date | TIMESTAMP | Date and time of assignment |
+
+---
+
+# Database Relationships
+
+| Parent Table | Child Table | Relationship |
+|---|---|---|
+| users | lead_assignments | One-to-Many |
+| leads | lead_scores | One-to-Many |
+| leads | lead_assignments | One-to-Many |
+
+---
+
+# Database Workflow
+
+The database workflow follows the machine learning pipeline of the system.
+
+```text
+Lead Capture
+    ↓
+Lead Storage
+    ↓
+Data Preprocessing
+    ↓
+Machine Learning Prediction
+    ↓
+Lead Score Generation
+    ↓
+Lead Categorization
+    ↓
+Lead Assignment
+```
+
+---
+
+# Machine Learning Data Usage
+
+The **Leads Table** serves as the primary machine learning dataset.
+
+During training:
+
+- Predictive features are extracted from the leads table
+- The `converted` column acts as the target label
+- The model learns conversion patterns from historical lead data
+
+After prediction:
+
+- Results are stored in the `lead_scores` table
+- Qualified leads are distributed using the `lead_assignments` table
+
+This architecture separates machine learning prediction from operational sales workflow management.
 ---
 
 ### Database ER Diagram
