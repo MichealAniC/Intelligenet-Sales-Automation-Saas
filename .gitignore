@@ -1,0 +1,5 @@
+.dbg/
+.trae/
+**/.env
+**/*.log
+backend/b2b_sales_leads_dirty.csv

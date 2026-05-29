@@ -1,0 +1,757 @@
+{
+  "file": "C:\\Users\\Hp\\Documents\\Intelligent Sales Automation Saas\\SalesPilot Ai\\Intelligenet-Sales-Automation-Saas\\dataset\\B2B_Sales_Data.xlsx",
+  "sheet": "b2b_sales_leads",
+  "shape": [
+    5000,
+    28
+  ],
+  "columns": [
+    "lead_id",
+    "first_name",
+    "last_name",
+    "email",
+    "phone_number",
+    "job_title",
+    "seniority_level",
+    "department",
+    "country",
+    "company_name",
+    "company_industry",
+    "company_size_category",
+    "company_size_range",
+    "estimated_annual_revenue(Millions)",
+    "lead_source",
+    "date_captured",
+    "website_visits",
+    "pages_viewed",
+    "average_time_on_site(mins)",
+    "email_open_rate(%)",
+    "email_click_rate(%)",
+    "webinar_attendance",
+    "last_interaction_days",
+    "meeting_scheduled",
+    "follow_up_status",
+    "estimated_budget",
+    "purchase_timeline",
+    "converted"
+  ],
+  "dtypes": {
+    "lead_id": "string",
+    "first_name": "string",
+    "last_name": "string",
+    "email": "string",
+    "phone_number": "string",
+    "job_title": "string",
+    "seniority_level": "string",
+    "department": "string",
+    "country": "string",
+    "company_name": "string",
+    "company_industry": "string",
+    "company_size_category": "string",
+    "company_size_range": "string",
+    "estimated_annual_revenue(Millions)": "int",
+    "lead_source": "string",
+    "date_captured": "datetime",
+    "website_visits": "int",
+    "pages_viewed": "int",
+    "average_time_on_site(mins)": "float",
+    "email_open_rate(%)": "int",
+    "email_click_rate(%)": "int",
+    "webinar_attendance": "bool",
+    "last_interaction_days": "int",
+    "meeting_scheduled": "bool",
+    "follow_up_status": "string",
+    "estimated_budget": "string",
+    "purchase_timeline": "string",
+    "converted": "int"
+  },
+  "python_type_sets": {
+    "lead_id": [
+      "str"
+    ],
+    "first_name": [
+      "str"
+    ],
+    "last_name": [
+      "str"
+    ],
+    "email": [
+      "str"
+    ],
+    "phone_number": [
+      "str"
+    ],
+    "job_title": [
+      "str"
+    ],
+    "seniority_level": [
+      "str"
+    ],
+    "department": [
+      "str"
+    ],
+    "country": [
+      "str"
+    ],
+    "company_name": [
+      "str"
+    ],
+    "company_industry": [
+      "str"
+    ],
+    "company_size_category": [
+      "str"
+    ],
+    "company_size_range": [
+      "str"
+    ],
+    "estimated_annual_revenue(Millions)": [
+      "int"
+    ],
+    "lead_source": [
+      "str"
+    ],
+    "date_captured": [
+      "datetime"
+    ],
+    "website_visits": [
+      "int"
+    ],
+    "pages_viewed": [
+      "int"
+    ],
+    "average_time_on_site(mins)": [
+      "float",
+      "int"
+    ],
+    "email_open_rate(%)": [
+      "int"
+    ],
+    "email_click_rate(%)": [
+      "int"
+    ],
+    "webinar_attendance": [
+      "bool"
+    ],
+    "last_interaction_days": [
+      "int"
+    ],
+    "meeting_scheduled": [
+      "bool"
+    ],
+    "follow_up_status": [
+      "str"
+    ],
+    "estimated_budget": [
+      "str"
+    ],
+    "purchase_timeline": [
+      "str"
+    ],
+    "converted": [
+      "int"
+    ]
+  },
+  "null_counts": {
+    "lead_id": 0,
+    "first_name": 0,
+    "last_name": 0,
+    "email": 0,
+    "phone_number": 0,
+    "job_title": 0,
+    "seniority_level": 0,
+    "department": 0,
+    "country": 0,
+    "company_name": 0,
+    "company_industry": 0,
+    "company_size_category": 0,
+    "company_size_range": 0,
+    "estimated_annual_revenue(Millions)": 0,
+    "lead_source": 0,
+    "date_captured": 0,
+    "website_visits": 0,
+    "pages_viewed": 0,
+    "average_time_on_site(mins)": 0,
+    "email_open_rate(%)": 0,
+    "email_click_rate(%)": 0,
+    "webinar_attendance": 0,
+    "last_interaction_days": 0,
+    "meeting_scheduled": 0,
+    "follow_up_status": 0,
+    "estimated_budget": 0,
+    "purchase_timeline": 0,
+    "converted": 0
+  },
+  "nunique": {
+    "lead_id": 5000,
+    "first_name": 35,
+    "last_name": 25,
+    "email": 4993,
+    "phone_number": 4999,
+    "job_title": 8,
+    "seniority_level": 5,
+    "department": 10,
+    "country": 6,
+    "company_name": 208,
+    "company_industry": 10,
+    "company_size_category": 4,
+    "company_size_range": 7,
+    "estimated_annual_revenue(Millions)": 4607,
+    "lead_source": 7,
+    "date_captured": 366,
+    "website_visits": 50,
+    "pages_viewed": 30,
+    "average_time_on_site(mins)": 294,
+    "email_open_rate(%)": 101,
+    "email_click_rate(%)": 90,
+    "webinar_attendance": 2,
+    "last_interaction_days": 91,
+    "meeting_scheduled": 2,
+    "follow_up_status": 4,
+    "estimated_budget": 3,
+    "purchase_timeline": 4,
+    "converted": 2
+  },
+  "min_max": {
+    "estimated_annual_revenue(Millions)": {
+      "min": "101000",
+      "max": "998875000"
+    },
+    "date_captured": {
+      "min": "2025-05-21 00:00:00",
+      "max": "2026-05-21 00:00:00"
+    },
+    "website_visits": {
+      "min": "1",
+      "max": "50"
+    },
+    "pages_viewed": {
+      "min": "1",
+      "max": "30"
+    },
+    "average_time_on_site(mins)": {
+      "min": "0.5",
+      "max": "30"
+    },
+    "email_open_rate(%)": {
+      "min": "0",
+      "max": "100"
+    },
+    "email_click_rate(%)": {
+      "min": "0",
+      "max": "98"
+    },
+    "webinar_attendance": {
+      "min": "False",
+      "max": "True"
+    },
+    "last_interaction_days": {
+      "min": "0",
+      "max": "90"
+    },
+    "meeting_scheduled": {
+      "min": "False",
+      "max": "True"
+    },
+    "converted": {
+      "min": "0",
+      "max": "1"
+    }
+  },
+  "target": {
+    "column": "converted",
+    "value_counts": {
+      "0": 3269,
+      "1": 1731
+    }
+  },
+  "categorical": {
+    "priority_columns": {
+      "seniority_level": {
+        "nunique": 5,
+        "values_preview": [
+          "C-Suite",
+          "Director",
+          "Manager",
+          "Staff",
+          "VP"
+        ]
+      },
+      "company_industry": {
+        "nunique": 10,
+        "values_preview": [
+          "Consulting",
+          "Education",
+          "Finance",
+          "Healthcare",
+          "Logistics",
+          "Manufacturing",
+          "Retail",
+          "SaaS",
+          "Technology",
+          "Telecommunications"
+        ]
+      },
+      "company_size_category": {
+        "nunique": 4,
+        "values_preview": [
+          "Enterprise",
+          "Mid-Market",
+          "SMB",
+          "Startup"
+        ]
+      },
+      "lead_source": {
+        "nunique": 7,
+        "values_preview": [
+          "Cold Email",
+          "Events",
+          "LinkedIn",
+          "Paid Ads",
+          "Referral",
+          "Webinar",
+          "Website"
+        ]
+      },
+      "webinar_attendance": {
+        "nunique": 2,
+        "values_preview": [
+          "False",
+          "True"
+        ]
+      },
+      "meeting_scheduled": {
+        "nunique": 2,
+        "values_preview": [
+          "False",
+          "True"
+        ]
+      },
+      "follow_up_status": {
+        "nunique": 4,
+        "values_preview": [
+          "Negative",
+          "Neutral",
+          "No Response",
+          "Positive"
+        ]
+      },
+      "estimated_budget": {
+        "nunique": 3,
+        "values_preview": [
+          "High",
+          "Low",
+          "Medium"
+        ]
+      },
+      "purchase_timeline": {
+        "nunique": 4,
+        "values_preview": [
+          "1-3 Months",
+          "3-6 Months",
+          "Future",
+          "Immediate"
+        ]
+      },
+      "country": {
+        "nunique": 6,
+        "values_preview": [
+          "Ghana",
+          "Kenya",
+          "Nigeria",
+          "South Africa",
+          "UK",
+          "USA"
+        ]
+      },
+      "department": {
+        "nunique": 10,
+        "values_preview": [
+          "Customer Success",
+          "Engineering",
+          "Executive",
+          "Finance",
+          "Human Resources",
+          "IT",
+          "Marketing",
+          "Operations",
+          "Procurement",
+          "Sales"
+        ]
+      },
+      "job_title": {
+        "nunique": 8,
+        "values_preview": [
+          "CEO",
+          "CTO",
+          "HR Manager",
+          "IT Administrator",
+          "Marketing Manager",
+          "Operations Lead",
+          "Procurement Officer",
+          "Sales Director"
+        ]
+      },
+      "company_size_range": {
+        "nunique": 7,
+        "values_preview": [
+          "1-10",
+          "10-50",
+          "1000-5000",
+          "200-500",
+          "50-200",
+          "500-1000",
+          "5000+"
+        ]
+      }
+    },
+    "inferred_categorical_columns": [
+      "lead_id",
+      "first_name",
+      "last_name",
+      "email",
+      "phone_number",
+      "job_title",
+      "seniority_level",
+      "department",
+      "country",
+      "company_name",
+      "company_industry",
+      "company_size_category",
+      "company_size_range",
+      "lead_source",
+      "webinar_attendance",
+      "meeting_scheduled",
+      "follow_up_status",
+      "estimated_budget",
+      "purchase_timeline",
+      "converted"
+    ],
+    "counters_top10": {
+      "job_title": [
+        [
+          "IT Administrator",
+          656
+        ],
+        [
+          "Operations Lead",
+          643
+        ],
+        [
+          "CTO",
+          639
+        ],
+        [
+          "CEO",
+          639
+        ],
+        [
+          "Sales Director",
+          617
+        ],
+        [
+          "Marketing Manager",
+          611
+        ],
+        [
+          "HR Manager",
+          599
+        ],
+        [
+          "Procurement Officer",
+          596
+        ]
+      ],
+      "seniority_level": [
+        [
+          "Director",
+          1044
+        ],
+        [
+          "VP",
+          1037
+        ],
+        [
+          "Staff",
+          983
+        ],
+        [
+          "Manager",
+          977
+        ],
+        [
+          "C-Suite",
+          959
+        ]
+      ],
+      "department": [
+        [
+          "Executive",
+          532
+        ],
+        [
+          "Marketing",
+          521
+        ],
+        [
+          "Engineering",
+          513
+        ],
+        [
+          "Sales",
+          508
+        ],
+        [
+          "Procurement",
+          498
+        ],
+        [
+          "Customer Success",
+          497
+        ],
+        [
+          "Operations",
+          489
+        ],
+        [
+          "IT",
+          483
+        ],
+        [
+          "Human Resources",
+          482
+        ],
+        [
+          "Finance",
+          477
+        ]
+      ],
+      "country": [
+        [
+          "Nigeria",
+          1910
+        ],
+        [
+          "Ghana",
+          642
+        ],
+        [
+          "USA",
+          622
+        ],
+        [
+          "UK",
+          612
+        ],
+        [
+          "Kenya",
+          609
+        ],
+        [
+          "South Africa",
+          605
+        ]
+      ],
+      "company_industry": [
+        [
+          "Retail",
+          574
+        ],
+        [
+          "SaaS",
+          518
+        ],
+        [
+          "Logistics",
+          516
+        ],
+        [
+          "Consulting",
+          498
+        ],
+        [
+          "Technology",
+          494
+        ],
+        [
+          "Telecommunications",
+          492
+        ],
+        [
+          "Manufacturing",
+          486
+        ],
+        [
+          "Education",
+          483
+        ],
+        [
+          "Finance",
+          471
+        ],
+        [
+          "Healthcare",
+          468
+        ]
+      ],
+      "company_size_category": [
+        [
+          "SMB",
+          1643
+        ],
+        [
+          "Mid-Market",
+          1333
+        ],
+        [
+          "Startup",
+          1191
+        ],
+        [
+          "Enterprise",
+          833
+        ]
+      ],
+      "company_size_range": [
+        [
+          "10-50",
+          1435
+        ],
+        [
+          "50-200",
+          817
+        ],
+        [
+          "500-1000",
+          677
+        ],
+        [
+          "200-500",
+          656
+        ],
+        [
+          "1-10",
+          582
+        ],
+        [
+          "5000+",
+          417
+        ],
+        [
+          "1000-5000",
+          416
+        ]
+      ],
+      "lead_source": [
+        [
+          "LinkedIn",
+          755
+        ],
+        [
+          "Paid Ads",
+          732
+        ],
+        [
+          "Cold Email",
+          715
+        ],
+        [
+          "Referral",
+          708
+        ],
+        [
+          "Events",
+          707
+        ],
+        [
+          "Webinar",
+          706
+        ],
+        [
+          "Website",
+          677
+        ]
+      ],
+      "webinar_attendance": [
+        [
+          "False",
+          3228
+        ],
+        [
+          "True",
+          1772
+        ]
+      ],
+      "meeting_scheduled": [
+        [
+          "False",
+          3257
+        ],
+        [
+          "True",
+          1743
+        ]
+      ],
+      "follow_up_status": [
+        [
+          "Positive",
+          1525
+        ],
+        [
+          "Negative",
+          1418
+        ],
+        [
+          "No Response",
+          1100
+        ],
+        [
+          "Neutral",
+          957
+        ]
+      ],
+      "estimated_budget": [
+        [
+          "Low",
+          2097
+        ],
+        [
+          "Medium",
+          1684
+        ],
+        [
+          "High",
+          1219
+        ]
+      ],
+      "purchase_timeline": [
+        [
+          "Future",
+          1657
+        ],
+        [
+          "3-6 Months",
+          1272
+        ],
+        [
+          "Immediate",
+          1074
+        ],
+        [
+          "1-3 Months",
+          997
+        ]
+      ],
+      "converted": [
+        [
+          "0",
+          3269
+        ],
+        [
+          "1",
+          1731
+        ]
+      ]
+    }
+  }
+}

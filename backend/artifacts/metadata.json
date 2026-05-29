@@ -1,0 +1,48 @@
+{
+  "model_name": "RandomForestClassifier",
+  "feature_spec": {
+    "target": "converted",
+    "pii_columns": [
+      "lead_id",
+      "first_name",
+      "last_name",
+      "email",
+      "phone_number"
+    ],
+    "drop_columns": [
+      "company_name"
+    ],
+    "datetime_columns": [
+      "date_captured"
+    ]
+  },
+  "feature_columns": [
+    "job_title",
+    "seniority_level",
+    "department",
+    "country",
+    "company_industry",
+    "company_size_category",
+    "company_size_range",
+    "estimated_annual_revenue(Millions)",
+    "lead_source",
+    "website_visits",
+    "pages_viewed",
+    "average_time_on_site(mins)",
+    "email_open_rate(%)",
+    "email_click_rate(%)",
+    "webinar_attendance",
+    "last_interaction_days",
+    "meeting_scheduled",
+    "follow_up_status",
+    "estimated_budget",
+    "purchase_timeline",
+    "date_captured_year",
+    "date_captured_month",
+    "date_captured_dayofweek"
+  ],
+  "score_thresholds": {
+    "hot_min": 0.8,
+    "warm_min": 0.5
+  }
+}

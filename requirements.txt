@@ -6,8 +6,6 @@
 # --------------------------------
 # 1. Python & Core
 # --------------------------------
-python >=3.10
-pip >=23.0
 
 # --------------------------------
 # 2. Backend / API
@@ -32,12 +30,14 @@ pandas                 # Data manipulation
 numpy                  # Numerical computing
 scikit-learn           # Lead scoring ML models
 joblib                 # Model serialization / saving
+openpyxl               # Excel (.xlsx) import/export support
 
 # --------------------------------
 # 5. Security & Authentication
 # --------------------------------
 passlib[bcrypt]        # Password hashing
 python-jose[cryptography]  # JWT creation and verification
+bcrypt==4.0.1
 
 # --------------------------------
 # 6. Utilities
