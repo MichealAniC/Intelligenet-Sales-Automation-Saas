@@ -26,6 +26,27 @@ class LeadNoteCreate(BaseModel):
     body: str
 
 
+class LeadStatusUpdate(BaseModel):
+    lead_status: LeadStatus
+
+
+class LeadActivityCreate(BaseModel):
+    activity_type: str  # Call, Email, Meeting, Note
+    outcome: str | None = None
+    notes: str | None = None
+
+
+class LeadActivityPublic(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    lead_id: str
+    actor_user_id: uuid.UUID | None
+    event_type: str
+    data: dict[str, Any] | None
+    created_at: datetime
+
+
 class LeadNotePublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

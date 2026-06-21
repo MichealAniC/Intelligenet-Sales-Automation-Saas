@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import require_admin
 from app.core.database import get_db
@@ -120,8 +120,16 @@ def accept_invitation(payload: InvitationAcceptRequest, db: Session = Depends(ge
     db.add_all([user, invite])
     db.commit()
     db.refresh(user)
-    token = create_access_token(str(user.id))
-    return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
+    # eagerly load organization for the response
+    user_with_org = db.query(User).options(joinedload(User.organization)).filter(
+        User.id == user.id
+    ).first()
+    token = create_access_token(
+        str(user_with_org.id),
+        role=user_with_org.role.value,
+        organization_id=str(user_with_org.organization_id),
+    )
+    return TokenResponse(access_token=token, user=UserPublic.model_validate(user_with_org))
 
 
 @router.get("/me/list", response_model=list[InvitationPublic])

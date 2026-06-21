@@ -1,5 +1,6 @@
 from app.models.enums import (
     AssignmentStatus,
+    AvailabilityStatus,
     CompanySizeCategory,
     EstimatedBudget,
     FollowUpStatus,
@@ -7,6 +8,7 @@ from app.models.enums import (
     LeadSource,
     LeadStatus,
     PurchaseTimeline,
+    SalesProfile,
     SeniorityLevel,
     UserRole,
 )
@@ -24,6 +26,7 @@ from app.models.user import User
 
 __all__ = [
     "AssignmentStatus",
+    "AvailabilityStatus",
     "CompanySizeCategory",
     "EstimatedBudget",
     "FollowUpStatus",
@@ -41,6 +44,7 @@ __all__ = [
     "LeadTagLink",
     "Organization",
     "PurchaseTimeline",
+    "SalesProfile",
     "SeniorityLevel",
     "User",
     "UserRole",

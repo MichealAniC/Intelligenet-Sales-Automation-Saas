@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Box,
@@ -7,15 +7,44 @@ import {
   CardContent,
   Chip,
   Divider,
+  MenuItem,
+  Select,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
+import {
+  AutoAwesomeOutlined,
+  CallOutlined,
+  EmailOutlined,
+  EventOutlined,
+  NoteOutlined,
+  RocketLaunchOutlined,
+  TrendingUpOutlined,
+} from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
 import { api } from "@/api/http";
-import type { LeadIntelligenceDetail } from "@/api/types";
+import type { LeadIntelligenceDetail, LeadStatus } from "@/api/types";
 import ScoreChip from "@/components/ScoreChip";
 import { useAuthStore } from "@/stores/auth";
+
+const PIPELINE_STAGES: LeadStatus[] = ["New", "Contacted", "Qualified", "Unqualified", "Converted", "Archived"];
+
+const ACTIVITY_TYPES = [
+  { value: "Call", label: "Call", icon: <CallOutlined sx={{ fontSize: 18 }} /> },
+  { value: "Email", label: "Email", icon: <EmailOutlined sx={{ fontSize: 18 }} /> },
+  { value: "Meeting", label: "Meeting", icon: <EventOutlined sx={{ fontSize: 18 }} /> },
+  { value: "Note", label: "Note", icon: <NoteOutlined sx={{ fontSize: 18 }} /> },
+];
+
+const ACTIVITY_OUTCOMES = ["Positive", "Neutral", "Negative", "No Response"];
+
+const EVENT_ICONS: Record<string, React.ReactNode> = {
+  activity_call: <CallOutlined sx={{ fontSize: 16 }} />,
+  activity_email: <EmailOutlined sx={{ fontSize: 16 }} />,
+  activity_meeting: <EventOutlined sx={{ fontSize: 16 }} />,
+  activity_note: <NoteOutlined sx={{ fontSize: 16 }} />,
+};
 
 export default function LeadDetail() {
   const { leadId } = useParams();
@@ -28,8 +57,14 @@ export default function LeadDetail() {
   const [noteBody, setNoteBody] = useState("");
   const [tagName, setTagName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
+  // Activity logging state
+  const [activityType, setActivityType] = useState("Call");
+  const [activityOutcome, setActivityOutcome] = useState("Positive");
+  const [activityNotes, setActivityNotes] = useState("");
+  const [activityBusy, setActivityBusy] = useState(false);
 
   const canAdminAct = user?.role === "Admin";
+  const isSales = user?.role === "Sales";
 
   const rawOriginal = useMemo(() => {
     const raw = data?.raw_data as any;
@@ -42,6 +77,12 @@ export default function LeadDetail() {
     const mapped = raw?.mapped;
     return mapped && typeof mapped === "object" ? (mapped as Record<string, unknown>) : null;
   }, [data]);
+
+  const refresh = useCallback(async () => {
+    if (!leadId) return;
+    const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
+    setData(res.data);
+  }, [leadId]);
 
   useEffect(() => {
     if (!leadId) return;
@@ -59,10 +100,39 @@ export default function LeadDetail() {
         if (mounted) setLoading(false);
       }
     })();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [leadId]);
+
+  const onStatusChange = async (newStatus: string) => {
+    if (!leadId) return;
+    setActionBusy(true);
+    try {
+      await api.patch(`/leads/${encodeURIComponent(leadId)}/status`, { lead_status: newStatus });
+      await refresh();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Failed to update status");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const onLogActivity = async () => {
+    if (!leadId) return;
+    setActivityBusy(true);
+    try {
+      await api.post(`/leads/${encodeURIComponent(leadId)}/activities`, {
+        activity_type: activityType,
+        outcome: activityOutcome,
+        notes: activityNotes.trim() || null,
+      });
+      setActivityNotes("");
+      await refresh();
+    } catch (err: any) {
+      setError(err?.response?.data?.detail || "Failed to log activity");
+    } finally {
+      setActivityBusy(false);
+    }
+  };
 
   const onAddNote = async () => {
     if (!leadId) return;
@@ -72,8 +142,7 @@ export default function LeadDetail() {
     try {
       await api.post(`/leads/${encodeURIComponent(leadId)}/notes`, { body });
       setNoteBody("");
-      const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-      setData(res.data);
+      await refresh();
     } finally {
       setActionBusy(false);
     }
@@ -91,8 +160,7 @@ export default function LeadDetail() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       setTagName("");
-      const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-      setData(res.data);
+      await refresh();
     } finally {
       setActionBusy(false);
     }
@@ -103,8 +171,7 @@ export default function LeadDetail() {
     setActionBusy(true);
     try {
       await api.delete(`/leads/${encodeURIComponent(leadId)}/tags/${encodeURIComponent(tagId)}`);
-      const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-      setData(res.data);
+      await refresh();
     } finally {
       setActionBusy(false);
     }
@@ -119,8 +186,7 @@ export default function LeadDetail() {
       } else {
         await api.post(`/leads/${encodeURIComponent(leadId)}/archive`);
       }
-      const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-      setData(res.data);
+      await refresh();
     } finally {
       setActionBusy(false);
     }
@@ -138,17 +204,17 @@ export default function LeadDetail() {
   };
 
   const lead = data?.lead;
+  const currentStatusIdx = lead ? PIPELINE_STAGES.indexOf(lead.lead_status) : -1;
 
   return (
     <Stack spacing={2.5}>
+      {/* Header */}
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Stack spacing={0.25}>
           <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -0.6 }}>
             Lead Intelligence
           </Typography>
-          <Typography color="text.secondary">
-            {leadId}
-          </Typography>
+          <Typography color="text.secondary">{leadId}</Typography>
         </Stack>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={() => navigate("/app/leads")}>
@@ -156,19 +222,10 @@ export default function LeadDetail() {
           </Button>
           {canAdminAct ? (
             <>
-              <Button
-                variant="outlined"
-                disabled={actionBusy || loading || !data}
-                onClick={onArchiveToggle}
-              >
+              <Button variant="outlined" disabled={actionBusy || loading || !data} onClick={onArchiveToggle}>
                 {data?.lead.lead_status === "Archived" ? "Unarchive" : "Archive"}
               </Button>
-              <Button
-                variant="contained"
-                color="error"
-                disabled={actionBusy || loading}
-                onClick={onDelete}
-              >
+              <Button variant="contained" color="error" disabled={actionBusy || loading} onClick={onDelete}>
                 Delete
               </Button>
             </>
@@ -176,10 +233,42 @@ export default function LeadDetail() {
         </Stack>
       </Stack>
 
-      {error ? <Alert severity="warning">{error}</Alert> : null}
+      {error ? <Alert severity="warning" onClose={() => setError(null)}>{error}</Alert> : null}
 
+      {/* Pipeline Stepper */}
+      <Card sx={{ borderRadius: 1 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <RocketLaunchOutlined sx={{ color: "primary.main" }} />
+            <Typography sx={{ fontWeight: 900 }}>Pipeline Progression</Typography>
+            <Typography variant="body2" color="text.secondary">
+              — Current: <b>{lead?.lead_status ?? "—"}</b>
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {PIPELINE_STAGES.map((stage, idx) => {
+              const isCurrent = lead?.lead_status === stage;
+              const isPast = currentStatusIdx > idx;
+              return (
+                <Button
+                  key={stage}
+                  variant={isCurrent ? "contained" : isPast ? "outlined" : "text"}
+                  color={isCurrent ? "primary" : isPast ? "success" : "inherit"}
+                  disabled={actionBusy || loading || isCurrent || stage === "Archived"}
+                  onClick={() => onStatusChange(stage)}
+                  sx={{ borderRadius: 1, minWidth: 110 }}
+                >
+                  {stage}
+                </Button>
+              );
+            })}
+          </Stack>
+        </CardContent>
+      </Card>
+
+      {/* Lead Overview + AI Intelligence */}
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2.5} alignItems="stretch">
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 1 }}>Lead Overview</Typography>
             {loading || !lead ? (
@@ -204,9 +293,7 @@ export default function LeadDetail() {
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
                   <Typography color="text.secondary">Company Size</Typography>
-                  <Typography sx={{ fontWeight: 800 }}>
-                    {lead.company_size_category} • {lead.company_size_range}
-                  </Typography>
+                  <Typography sx={{ fontWeight: 800 }}>{lead.company_size_category} • {lead.company_size_range}</Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
                   <Typography color="text.secondary">Lead Source</Typography>
@@ -225,37 +312,74 @@ export default function LeadDetail() {
                   <Typography color="text.secondary">Created</Typography>
                   <Typography sx={{ fontWeight: 800 }}>{new Date(lead.created_at).toLocaleString()}</Typography>
                 </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Upload Batch</Typography>
-                  <Typography sx={{ fontWeight: 800 }}>{data.import_batch_code || "—"}</Typography>
-                </Stack>
               </Stack>
             )}
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        {/* AI Intelligence Panel */}
+        <Card sx={{ borderRadius: 1, flex: 1, border: "2px solid rgba(245, 158, 11, 0.2)" }}>
           <CardContent sx={{ p: 3 }}>
-            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
-              <Typography sx={{ fontWeight: 900 }}>AI Intelligence</Typography>
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <AutoAwesomeOutlined sx={{ color: "warning.main" }} />
+              <Typography sx={{ fontWeight: 900, fontSize: "1.1rem" }}>AI Intelligence</Typography>
               {data?.ai.lead_tier ? <ScoreChip category={data.ai.lead_tier} /> : null}
             </Stack>
             {loading || !data ? (
               <Typography color="text.secondary">Loading…</Typography>
             ) : (
-              <Stack spacing={1}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Lead Score</Typography>
-                  <Typography sx={{ fontWeight: 900 }}>{data.ai.score_value ?? "—"}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Conversion Probability</Typography>
-                  <Typography sx={{ fontWeight: 900 }}>
-                    {typeof data.ai.conversion_probability === "number"
-                      ? `${(data.ai.conversion_probability * 100).toFixed(1)}%`
-                      : "—"}
+              <Stack spacing={1.5}>
+                {/* Score Display */}
+                <Box
+                  sx={{
+                    textAlign: "center",
+                    py: 2,
+                    borderRadius: 1,
+                    bgcolor: (data.ai.score_value ?? 0) >= 80
+                      ? "rgba(244, 67, 54, 0.06)"
+                      : (data.ai.score_value ?? 0) >= 50
+                        ? "rgba(255, 152, 0, 0.06)"
+                        : "rgba(15, 23, 42, 0.03)",
+                    border: "1px solid rgba(15, 23, 42, 0.08)",
+                  }}
+                >
+                  <Typography variant="body2" color="text.secondary">AI Lead Score</Typography>
+                  <Typography sx={{ fontWeight: 900, fontSize: "2.5rem", lineHeight: 1.1 }}>
+                    {data.ai.score_value ?? "—"}
                   </Typography>
-                </Stack>
+                  <Typography variant="body2" color="text.secondary">
+                    {typeof data.ai.conversion_probability === "number"
+                      ? `${(data.ai.conversion_probability * 100).toFixed(1)}% conversion probability`
+                      : ""}
+                  </Typography>
+                </Box>
+
+                {/* Recommended Actions */}
+                {data.ai.recommended_action ? (
+                  <Box
+                    sx={{
+                      p: 2,
+                      borderRadius: 1,
+                      bgcolor: "rgba(245, 158, 11, 0.08)",
+                      border: "1px solid rgba(245, 158, 11, 0.25)",
+                    }}
+                  >
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 0.5 }}>
+                      <TrendingUpOutlined sx={{ fontSize: 18, color: "warning.main" }} />
+                      <Typography sx={{ fontWeight: 900, fontSize: "0.85rem" }}>Recommended Action</Typography>
+                    </Stack>
+                    <Typography sx={{ fontWeight: 700 }}>{data.ai.recommended_action}</Typography>
+                  </Box>
+                ) : null}
+
+                {data.ai.reasoning ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ fontStyle: "italic" }}>
+                    {data.ai.reasoning}
+                  </Typography>
+                ) : null}
+
+                <Divider />
+
                 <Stack direction="row" justifyContent="space-between">
                   <Typography color="text.secondary">AI Priority</Typography>
                   <Typography sx={{ fontWeight: 900 }}>{data.ai.ai_priority_level || "—"}</Typography>
@@ -269,127 +393,131 @@ export default function LeadDetail() {
                   </Typography>
                 </Stack>
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Ranking Position</Typography>
-                  <Typography sx={{ fontWeight: 900 }}>{data.ai.ranking_position ?? "—"}</Typography>
-                </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Predicted Value</Typography>
-                  <Typography sx={{ fontWeight: 900 }}>
-                    {typeof data.ai.predicted_value === "number"
-                      ? data.ai.predicted_value.toLocaleString(undefined, { maximumFractionDigits: 0 })
-                      : "—"}
-                  </Typography>
-                </Stack>
-                <Divider sx={{ my: 1 }} />
-                <Stack direction="row" justifyContent="space-between">
                   <Typography color="text.secondary">Assigned Rep</Typography>
                   <Typography sx={{ fontWeight: 900 }}>
                     {data.assignment.assigned_to_name || data.assignment.assigned_to_staff_id || "—"}
                   </Typography>
                 </Stack>
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography color="text.secondary">Lead Status</Typography>
-                  <Typography sx={{ fontWeight: 900 }}>{lead?.lead_status}</Typography>
-                </Stack>
-                {data.ai.recommended_action ? (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Recommendation: <b>{data.ai.recommended_action}</b>
-                  </Typography>
-                ) : null}
-                {data.ai.reasoning ? (
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    {data.ai.reasoning}
-                  </Typography>
-                ) : null}
               </Stack>
             )}
           </CardContent>
         </Card>
       </Stack>
 
+      {/* Activity Logging + Timeline */}
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2.5}>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        {/* Log Activity */}
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
-            <Typography sx={{ fontWeight: 900, mb: 1 }}>Lead Attributes (Raw Data)</Typography>
-            {!rawOriginal && !rawMapped ? (
-              <Typography color="text.secondary">No raw dataset fields captured for this lead yet.</Typography>
-            ) : (
-              <Stack spacing={1.5}>
-                {rawOriginal ? (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Original upload columns
-                    </Typography>
-                    <Box sx={{ maxHeight: 260, overflow: "auto", border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 1.5 }}>
-                      <Stack spacing={0.75}>
-                        {Object.entries(rawOriginal).map(([k, v]) => (
-                          <Stack key={k} direction="row" justifyContent="space-between" spacing={2}>
-                            <Typography variant="body2" color="text.secondary">
-                              {k}
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, textAlign: "right" }}>
-                              {v == null ? "—" : String(v)}
-                            </Typography>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    </Box>
-                  </Box>
-                ) : null}
-
-                {rawMapped ? (
-                  <Box>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      Normalized mapped fields
-                    </Typography>
-                    <Box sx={{ maxHeight: 260, overflow: "auto", border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 1.5 }}>
-                      <Stack spacing={0.75}>
-                        {Object.entries(rawMapped).map(([k, v]) => (
-                          <Stack key={k} direction="row" justifyContent="space-between" spacing={2}>
-                            <Typography variant="body2" color="text.secondary">
-                              {k}
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, textAlign: "right" }}>
-                              {v == null ? "—" : String(v)}
-                            </Typography>
-                          </Stack>
-                        ))}
-                      </Stack>
-                    </Box>
-                  </Box>
-                ) : null}
+            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+              <EventOutlined sx={{ color: "primary.main" }} />
+              <Typography sx={{ fontWeight: 900 }}>Log Activity</Typography>
+            </Stack>
+            <Stack spacing={2}>
+              <Stack direction="row" spacing={1}>
+                {ACTIVITY_TYPES.map((t) => (
+                  <Button
+                    key={t.value}
+                    variant={activityType === t.value ? "contained" : "outlined"}
+                    size="small"
+                    startIcon={t.icon}
+                    onClick={() => setActivityType(t.value)}
+                    sx={{ borderRadius: 1, flex: 1 }}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
               </Stack>
-            )}
+              <Select
+                value={activityOutcome}
+                onChange={(e) => setActivityOutcome(e.target.value)}
+                size="small"
+              >
+                {ACTIVITY_OUTCOMES.map((o) => (
+                  <MenuItem key={o} value={o}>{o}</MenuItem>
+                ))}
+              </Select>
+              <TextField
+                value={activityNotes}
+                onChange={(e) => setActivityNotes(e.target.value)}
+                placeholder="Notes / outcome details…"
+                fullWidth
+                multiline
+                minRows={2}
+                size="small"
+              />
+              <Button
+                variant="contained"
+                disabled={activityBusy}
+                onClick={onLogActivity}
+                sx={{ borderRadius: 1 }}
+              >
+                {activityBusy ? "Logging…" : "Log Activity"}
+              </Button>
+            </Stack>
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        {/* Audit Timeline */}
+        <Card sx={{ borderRadius: 1, flex: 1.5 }}>
           <CardContent sx={{ p: 3 }}>
-            <Typography sx={{ fontWeight: 900, mb: 1 }}>Activity Timeline</Typography>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
+              <Typography sx={{ fontWeight: 900 }}>Activity Timeline</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {data?.recent_events?.length ?? 0} events
+              </Typography>
+            </Stack>
             {data?.recent_events?.length ? (
               <Stack spacing={1}>
-                {data.recent_events.map((e) => (
-                  <Box
-                    key={e.id}
-                    sx={{
-                      border: "1px solid rgba(15, 23, 42, 0.08)",
-                      borderRadius: 3,
-                      p: 1.5,
-                    }}
-                  >
-                    <Stack direction="row" alignItems="center" justifyContent="space-between">
-                      <Typography sx={{ fontWeight: 800 }}>{e.event_type}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {new Date(e.created_at).toLocaleString()}
-                      </Typography>
-                    </Stack>
-                    {e.data ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        {JSON.stringify(e.data)}
-                      </Typography>
-                    ) : null}
-                  </Box>
-                ))}
+                {data.recent_events.map((e) => {
+                  const evtData = e.data as any;
+                  const isActivity = e.event_type.startsWith("activity_");
+                  return (
+                    <Box
+                      key={e.id}
+                      sx={{
+                        border: "1px solid rgba(15, 23, 42, 0.08)",
+                        borderRadius: 1,
+                        p: 1.5,
+                        bgcolor: isActivity ? "rgba(37, 99, 235, 0.02)" : undefined,
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" justifyContent="space-between">
+                        <Stack direction="row" alignItems="center" spacing={0.75}>
+                          {EVENT_ICONS[e.event_type] ?? null}
+                          <Typography sx={{ fontWeight: 800 }}>
+                            {isActivity ? evtData?.activity_type ?? e.event_type : e.event_type.replace(/_/g, " ")}
+                          </Typography>
+                          {evtData?.outcome && (
+                            <Chip
+                              size="small"
+                              label={evtData.outcome}
+                              color={
+                                evtData.outcome === "Positive" ? "success" :
+                                evtData.outcome === "Negative" ? "error" : "default"
+                              }
+                              sx={{ fontWeight: 700 }}
+                            />
+                          )}
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary">
+                          {new Date(e.created_at).toLocaleString()}
+                        </Typography>
+                      </Stack>
+                      {evtData?.notes ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {evtData.notes}
+                        </Typography>
+                      ) : e.data && !isActivity ? (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                          {typeof e.data === "object"
+                            ? Object.entries(e.data).map(([k, v]) => `${k}: ${v}`).join(", ")
+                            : JSON.stringify(e.data)}
+                        </Typography>
+                      ) : null}
+                    </Box>
+                  );
+                })}
               </Stack>
             ) : (
               <Typography color="text.secondary">No activity recorded yet.</Typography>
@@ -398,8 +526,9 @@ export default function LeadDetail() {
         </Card>
       </Stack>
 
+      {/* Notes + Tags */}
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2.5}>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 1 }}>Notes</Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
@@ -418,11 +547,9 @@ export default function LeadDetail() {
             {data?.notes?.length ? (
               <Stack spacing={1}>
                 {data.notes.map((n) => (
-                  <Box key={n.id} sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 1.5 }}>
+                  <Box key={n.id} sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 1, p: 1.5 }}>
                     <Typography sx={{ fontWeight: 800 }}>{new Date(n.created_at).toLocaleString()}</Typography>
-                    <Typography variant="body2" sx={{ mt: 0.5 }}>
-                      {n.body}
-                    </Typography>
+                    <Typography variant="body2" sx={{ mt: 0.5 }}>{n.body}</Typography>
                   </Box>
                 ))}
               </Stack>
@@ -432,7 +559,7 @@ export default function LeadDetail() {
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 1 }}>Tags</Typography>
             <Stack direction="row" spacing={1} sx={{ mb: 2 }}>
@@ -466,4 +593,3 @@ export default function LeadDetail() {
     </Stack>
   );
 }
-

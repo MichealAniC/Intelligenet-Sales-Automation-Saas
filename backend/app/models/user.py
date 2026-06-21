@@ -3,12 +3,12 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy import ARRAY, Boolean, DateTime, Enum, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
-from app.models.enums import UserRole
+from app.models.enums import AvailabilityStatus, ProfileStatus, SalesProfile, UserRole
 from app.models.utils import enum_values
 
 
@@ -33,6 +33,31 @@ class User(Base):
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=enum_values)
     )
+    # ── Prescriptive Lead Routing attributes ──────────────────────────
+    sales_profile: Mapped[SalesProfile | None] = mapped_column(
+        Enum(SalesProfile, name="sales_profile", values_callable=enum_values),
+        nullable=True,
+    )
+    availability_status: Mapped[AvailabilityStatus] = mapped_column(
+        Enum(AvailabilityStatus, name="availability_status", values_callable=enum_values),
+        nullable=False,
+        server_default="Available",
+    )
+    performance_rating: Mapped[int] = mapped_column(
+        Integer, nullable=False, server_default="0"
+    )
+    industry_specializations: Mapped[list[str]] = mapped_column(
+        ARRAY(String), nullable=False, server_default="{}"
+    )
+    auto_assignment_enabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default="false"
+    )
+    profile_status: Mapped[ProfileStatus] = mapped_column(
+        Enum(ProfileStatus, name="profile_status", values_callable=enum_values),
+        nullable=False,
+        server_default="Pending Configuration",
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

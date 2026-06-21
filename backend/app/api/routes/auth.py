@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.core.database import get_db
 from app.core.security import create_access_token, hash_password, verify_password
@@ -14,13 +14,25 @@ from app.schemas.user import UserCreate, UserPublic
 router = APIRouter(prefix="/auth")
 
 
+def _issue_token(user: User) -> TokenResponse:
+    token = create_access_token(
+        str(user.id),
+        role=user.role.value,
+        organization_id=str(user.organization_id),
+    )
+    return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
+
+
 @router.post("/login", response_model=TokenResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenResponse:
-    user = get_user_by_staff_id(db, payload.staff_id)
+    user = db.query(User).options(joinedload(User.organization)).filter(
+        User.staff_id == payload.staff_id.strip(),
+    ).first()
     if not user or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = create_access_token(str(user.id))
-    return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
+    if user.role != payload.role:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Role mismatch")
+    return _issue_token(user)
 
 
 @router.post("/signup-admin", response_model=TokenResponse)
@@ -52,8 +64,10 @@ def signup_admin(payload: AdminSignupRequest, db: Session = Depends(get_db)) -> 
     db.add_all([org, user])
     db.commit()
     db.refresh(user)
-    token = create_access_token(str(user.id))
-    return TokenResponse(access_token=token, user=UserPublic.model_validate(user))
+    user_with_org = db.query(User).options(joinedload(User.organization)).filter(
+        User.id == user.id
+    ).first()
+    return _issue_token(user_with_org)
 
 
 @router.post("/register", response_model=UserPublic)

@@ -17,7 +17,6 @@ import {
   FormLabel,
   IconButton,
   InputLabel,
-  LinearProgress,
   MenuItem,
   Select,
   Slider,
@@ -50,7 +49,7 @@ const SALES_PROFILES: SalesProfile[] = [
 const AVAILABILITY_OPTIONS: AvailabilityStatus[] = ["Available", "Busy", "On Leave", "Inactive"];
 const PROFILE_STATUSES: ProfileStatus[] = ["Pending Configuration", "Active", "Disabled"];
 
-export default function Team() {
+export default function SalesTeam() {
   const [email, setEmail] = useState("");
   const [expiresInHours, setExpiresInHours] = useState(72);
   const [loading, setLoading] = useState(false);
@@ -63,7 +62,7 @@ export default function Team() {
 
   // Config modal state
   const [configMember, setConfigMember] = useState<TeamMemberWorkload | null>(null);
-  const [cfgProfile, setCfgProfile] = useState<SalesProfile | "">( "");
+  const [cfgProfile, setCfgProfile] = useState<SalesProfile | "">("");
   const [cfgAvailability, setCfgAvailability] = useState<AvailabilityStatus>("Available");
   const [cfgRating, setCfgRating] = useState(0);
   const [cfgSpecializations, setCfgSpecializations] = useState<string[]>([]);
@@ -134,7 +133,6 @@ export default function Team() {
     }
   };
 
-  // Open config modal
   const openConfig = (m: TeamMemberWorkload) => {
     setConfigMember(m);
     setCfgProfile(m.sales_profile ?? "");
@@ -176,7 +174,7 @@ export default function Team() {
     [workload],
   );
 
-  const workloadColumns = useMemo<GridColDef[]>(
+  const rosterColumns = useMemo<GridColDef[]>(
     () => [
       { field: "full_name", headerName: "Name", minWidth: 160, flex: 1 },
       {
@@ -185,45 +183,6 @@ export default function Team() {
         width: 160,
         renderCell: (p: any) =>
           p.value ?? <Typography color="text.secondary">—</Typography>,
-      },
-      {
-        field: "performance_rating",
-        headerName: "Rating",
-        width: 80,
-        renderCell: (p: any) => (
-          <Typography sx={{ fontWeight: 800 }}>{p.value}</Typography>
-        ),
-      },
-      {
-        field: "assigned_leads",
-        headerName: "Assigned",
-        width: 90,
-        renderCell: (p: any) => (
-          <Typography sx={{ fontWeight: 800 }}>{p.value}</Typography>
-        ),
-      },
-      { field: "capacity", headerName: "Capacity", width: 90 },
-      {
-        field: "utilization_percent",
-        headerName: "Utilization",
-        width: 180,
-        renderCell: (p: any) => {
-          const v = p.value as number;
-          const color = v >= 90 ? "error" : v >= 70 ? "warning" : "success";
-          return (
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ width: "100%" }}>
-              <LinearProgress
-                variant="determinate"
-                value={Math.min(v, 100)}
-                color={color as any}
-                sx={{ flex: 1, height: 8, borderRadius: 1 }}
-              />
-              <Typography variant="body2" sx={{ fontWeight: 700, minWidth: 44, textAlign: "right" }}>
-                {v}%
-              </Typography>
-            </Stack>
-          );
-        },
       },
       {
         field: "profile_status",
@@ -255,6 +214,19 @@ export default function Team() {
         },
       },
       {
+        field: "auto_assignment_enabled",
+        headerName: "Auto-Assign",
+        width: 110,
+        renderCell: (p: any) => (
+          <Chip
+            label={p.value ? "Enabled" : "Disabled"}
+            color={p.value ? "success" : "default"}
+            size="small"
+            variant="outlined"
+          />
+        ),
+      },
+      {
         field: "actions",
         headerName: "Actions",
         width: 80,
@@ -280,24 +252,24 @@ export default function Team() {
     <Stack spacing={2.5}>
       <Stack spacing={0.5}>
         <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -0.4 }}>
-          Team Management
+          Sales Team
         </Typography>
         <Typography color="text.secondary">
-          Configure routing profiles, monitor workload, and invite new Sales members.
+          Manage your sales roster, configure routing profiles, and invite new members.
         </Typography>
       </Stack>
 
       {error ? <Alert severity="error" onClose={() => setError(null)}>{error}</Alert> : null}
       {success ? <Alert severity="success" onClose={() => setSuccess(null)}>{success}</Alert> : null}
 
-      {/* Team Workload Dashboard */}
+      {/* Sales Roster */}
       <Card sx={{ borderRadius: 1 }}>
         <CardContent sx={{ p: 3 }}>
-          <Typography sx={{ fontWeight: 900, mb: 2 }}>Team Workload</Typography>
-          <Box sx={{ height: 420, width: "100%" }}>
+          <Typography sx={{ fontWeight: 900, mb: 2 }}>Sales Roster</Typography>
+          <Box sx={{ height: 420, width: "100%", overflowX: "auto" }}>
             <DataGrid
               rows={workloadRows}
-              columns={workloadColumns}
+              columns={rosterColumns}
               loading={workloadLoading}
               disableRowSelectionOnClick
               pageSizeOptions={[10, 25, 50]}
@@ -416,7 +388,6 @@ export default function Team() {
         </DialogTitle>
         <DialogContent dividers>
           <Stack spacing={3} sx={{ mt: 1 }}>
-            {/* Profile Status */}
             <FormControl fullWidth>
               <InputLabel>Profile Status</InputLabel>
               <Select
@@ -430,7 +401,6 @@ export default function Team() {
               </Select>
             </FormControl>
 
-            {/* Sales Profile */}
             <FormControl fullWidth>
               <InputLabel>Sales Profile</InputLabel>
               <Select
@@ -447,7 +417,6 @@ export default function Team() {
               </Select>
             </FormControl>
 
-            {/* Availability */}
             <FormControl fullWidth>
               <InputLabel>Availability</InputLabel>
               <Select
@@ -461,7 +430,6 @@ export default function Team() {
               </Select>
             </FormControl>
 
-            {/* Performance Rating */}
             <Box>
               <Typography sx={{ fontWeight: 700, mb: 1 }}>
                 Performance Rating: {cfgRating}
@@ -481,7 +449,6 @@ export default function Team() {
               />
             </Box>
 
-            {/* Industry Specializations */}
             <Autocomplete
               multiple
               freeSolo
@@ -502,7 +469,6 @@ export default function Team() {
               )}
             />
 
-            {/* Auto Assignment Toggle */}
             <FormControlLabel
               control={
                 <Switch

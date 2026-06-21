@@ -7,8 +7,8 @@ const inferredBase =
   typeof window !== "undefined" ? `${window.location.origin}/api/v1` : undefined;
 
 export const API_BASE_URL =
-  (!isProd ? inferredBase : undefined) ??
   envBase ??
+  (!isProd ? inferredBase : undefined) ??
   inferredBase ??
   "http://127.0.0.1:8010/api/v1";
 

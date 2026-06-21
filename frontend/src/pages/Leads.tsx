@@ -5,6 +5,9 @@ import {
   Button,
   Card,
   CardContent,
+  MenuItem,
+  Select,
+  Snackbar,
   Stack,
   TextField,
   Typography,
@@ -12,7 +15,7 @@ import {
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/http";
-import type { DashboardOverview, LeadOpsListResponse, LeadSummaryItem } from "@/api/types";
+import type { AutoAssignmentResponse, DashboardOverview, LeadOpsListResponse, LeadSummaryItem } from "@/api/types";
 import ScoreChip from "@/components/ScoreChip";
 import { useAuthStore } from "@/stores/auth";
 
@@ -28,6 +31,10 @@ export default function Leads() {
   const [query, setQuery] = useState("");
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
+  const [autoAssigning, setAutoAssigning] = useState(false);
+  const [autoAssignResult, setAutoAssignResult] = useState<string | null>(null);
+  const [tierFilter, setTierFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("");
 
   useEffect(() => {
     let mounted = true;
@@ -37,7 +44,7 @@ export default function Leads() {
       try {
         const [opsRes, overviewRes] = await Promise.all([
           api.get<LeadOpsListResponse>(
-            `/leads/ops?limit=${pageSize}&offset=${page * pageSize}&q=${encodeURIComponent(query)}`
+            `/leads/ops?limit=${pageSize}&offset=${page * pageSize}&q=${encodeURIComponent(query)}${tierFilter ? `&tier=${tierFilter}` : ""}${statusFilter ? `&lead_status=${statusFilter}` : ""}`
           ),
           api.get<DashboardOverview>("/dashboard/overview"),
         ]);
@@ -56,7 +63,34 @@ export default function Leads() {
     return () => {
       mounted = false;
     };
-  }, [page, pageSize, query]);
+  }, [page, pageSize, query, tierFilter, statusFilter]);
+
+  const isAdmin = user?.role === "Admin";
+
+  const runAutoAssignment = async () => {
+    setAutoAssigning(true);
+    setAutoAssignResult(null);
+    try {
+      const res = await api.post<AutoAssignmentResponse>("/leads/trigger-auto-assignment", null, {
+        timeout: 300_000,
+      });
+      const d = res.data;
+      setAutoAssignResult(
+        `Auto-assignment complete: ${d.assigned} assigned, ${d.failed} skipped out of ${d.total_unassigned} unassigned leads.`
+      );
+      // Refresh lead list
+      const opsRes = await api.get<LeadOpsListResponse>(
+        `/leads/ops?limit=${pageSize}&offset=${page * pageSize}&q=${encodeURIComponent(query)}`
+      );
+      setItems(opsRes.data.items);
+      setTotal(opsRes.data.total);
+    } catch (err: any) {
+      const detail = err?.response?.data?.detail;
+      setAutoAssignResult(typeof detail === "string" ? detail : "Auto-assignment failed");
+    } finally {
+      setAutoAssigning(false);
+    }
+  };
 
   const rows = useMemo(() => {
     return items.map((i) => ({
@@ -145,17 +179,19 @@ export default function Leads() {
     <Stack spacing={2.5}>
       <Stack spacing={0.75}>
         <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -0.6 }}>
-          Lead Operations Center
+          {isAdmin ? "Lead Operations Center" : "My Leads"}
         </Typography>
         <Typography color="text.secondary">
-          Manage, prioritize, and inspect lead intelligence across your workspace.
+          {isAdmin
+            ? "Manage, prioritize, and inspect lead intelligence across your workspace."
+            : "View and track leads assigned to you."}
         </Typography>
       </Stack>
 
       {error ? <Alert severity="warning">{error}</Alert> : null}
 
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2.5}>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography color="text.secondary" variant="body2">
               Total Leads
@@ -165,7 +201,7 @@ export default function Leads() {
             </Typography>
           </CardContent>
         </Card>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography color="text.secondary" variant="body2">
               Hot / Warm / Cold
@@ -176,7 +212,7 @@ export default function Leads() {
             </Typography>
           </CardContent>
         </Card>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography color="text.secondary" variant="body2">
               Assigned / Unassigned
@@ -189,11 +225,11 @@ export default function Leads() {
       </Stack>
 
       <Stack direction={{ xs: "column", lg: "row" }} spacing={2.5}>
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 1 }}>Featured Leads</Typography>
             <Stack spacing={1.5}>
-              <Box sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 2 }}>
+              <Box sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 1, p: 2 }}>
                 <Typography color="text.secondary" variant="body2">
                   Highest Score Lead
                 </Typography>
@@ -204,7 +240,7 @@ export default function Leads() {
                   {featured.topScore?.lead.company_name || "—"} • Score {featured.topScore?.score_value ?? "—"}
                 </Typography>
               </Box>
-              <Box sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 2 }}>
+              <Box sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 1, p: 2 }}>
                 <Typography color="text.secondary" variant="body2">
                   Most Engaged Lead
                 </Typography>
@@ -219,7 +255,7 @@ export default function Leads() {
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 4, flex: 1 }}>
+        <Card sx={{ borderRadius: 1, flex: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Typography sx={{ fontWeight: 900, mb: 1 }}>Recent AI Recommendations</Typography>
             {overview?.recent_scores?.length ? (
@@ -227,7 +263,7 @@ export default function Leads() {
                 {overview.recent_scores.slice(0, 6).map((s) => (
                   <Box
                     key={s.lead_id}
-                    sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 3, p: 1.5 }}
+                    sx={{ border: "1px solid rgba(15, 23, 42, 0.08)", borderRadius: 1, p: 1.5 }}
                   >
                     <Stack direction="row" alignItems="center" justifyContent="space-between">
                       <Typography sx={{ fontWeight: 800 }}>{s.lead_name}</Typography>
@@ -246,7 +282,7 @@ export default function Leads() {
         </Card>
       </Stack>
 
-      <Card sx={{ borderRadius: 4 }}>
+      <Card sx={{ borderRadius: 1 }}>
         <CardContent sx={{ p: 3 }}>
           <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 2 }}>
             <TextField
@@ -259,10 +295,45 @@ export default function Leads() {
               }}
               fullWidth
             />
-            {user?.role === "Admin" ? (
-              <Button variant="outlined" onClick={() => navigate("/app/leads/import")}>
-                Import CSV
-              </Button>
+            <Select
+              value={tierFilter}
+              displayEmpty
+              onChange={(e) => { setPage(0); setTierFilter(e.target.value); }}
+              sx={{ minWidth: 140 }}
+            >
+              <MenuItem value="">All Tiers</MenuItem>
+              <MenuItem value="Hot">Hot</MenuItem>
+              <MenuItem value="Warm">Warm</MenuItem>
+              <MenuItem value="Cold">Cold</MenuItem>
+            </Select>
+            <Select
+              value={statusFilter}
+              displayEmpty
+              onChange={(e) => { setPage(0); setStatusFilter(e.target.value); }}
+              sx={{ minWidth: 160 }}
+            >
+              <MenuItem value="">All Stages</MenuItem>
+              <MenuItem value="New">New</MenuItem>
+              <MenuItem value="Contacted">Contacted</MenuItem>
+              <MenuItem value="Qualified">Qualified</MenuItem>
+              <MenuItem value="Unqualified">Unqualified</MenuItem>
+              <MenuItem value="Converted">Converted</MenuItem>
+              <MenuItem value="Archived">Archived</MenuItem>
+            </Select>
+            {isAdmin ? (
+              <>
+                <Button variant="outlined" onClick={() => navigate("/app/leads/import")}>
+                  Import CSV
+                </Button>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  disabled={autoAssigning}
+                  onClick={runAutoAssignment}
+                >
+                  {autoAssigning ? "Assigning..." : "Run Auto-Assignment"}
+                </Button>
+              </>
             ) : null}
           </Stack>
 
@@ -283,7 +354,7 @@ export default function Leads() {
               onRowClick={(p) => navigate(`/app/leads/${encodeURIComponent(p.row.lead_id)}`)}
               sx={{
                 border: "1px solid rgba(15, 23, 42, 0.08)",
-                borderRadius: 3,
+                borderRadius: 1,
                 "& .MuiDataGrid-columnHeaders": {
                   bgcolor: "rgba(15, 23, 42, 0.02)",
                   borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
@@ -296,6 +367,21 @@ export default function Leads() {
           </Box>
         </CardContent>
       </Card>
+
+      <Snackbar
+        open={!!autoAssignResult}
+        autoHideDuration={8000}
+        onClose={() => setAutoAssignResult(null)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setAutoAssignResult(null)}
+          severity={autoAssignResult?.includes("failed") ? "error" : "success"}
+          variant="filled"
+        >
+          {autoAssignResult}
+        </Alert>
+      </Snackbar>
     </Stack>
   );
 }

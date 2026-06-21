@@ -17,6 +17,8 @@ import AcceptInvite from "@/pages/AcceptInvite";
 import Me from "@/pages/Me";
 import ComingSoon from "@/pages/ComingSoon";
 import Team from "@/pages/Team";
+import SalesTeam from "@/pages/SalesTeam";
+import TeamManagement from "@/pages/TeamManagement";
 
 export default function App() {
   return (
@@ -61,12 +63,16 @@ export default function App() {
             <Route element={<ProtectedRoute roles={["Admin"]} />}>
               <Route path="leads/import" element={<LeadImport />} />
               <Route path="routing" element={<ComingSoon title="Routing Rules" description="Define rules for assignment and prioritization by segment and tier." />} />
+              <Route path="sales-team" element={<SalesTeam />} />
+              <Route path="team-management" element={<TeamManagement />} />
               <Route path="team" element={<Team />} />
               <Route path="settings" element={<ComingSoon title="Settings" description="Security, integrations, and platform preferences." />} />
             </Route>
             <Route path="leads/new" element={<LeadNew />} />
             <Route path="pipeline" element={<ComingSoon title="Pipeline" description="Pipeline stages, deal tracking, and workflow execution." />} />
             <Route path="analytics" element={<ComingSoon title="Analytics" description="Conversion trends, source distribution, and revenue insights." />} />
+            <Route path="tasks" element={<ComingSoon title="Tasks" description="Your assigned tasks and follow-up reminders." />} />
+            <Route path="activities" element={<ComingSoon title="Activities" description="Recent calls, emails, meetings, and engagement logs." />} />
             <Route path="me" element={<Me />} />
           </Route>
         </Route>

@@ -15,10 +15,22 @@ import { api } from "@/api/http";
 import type { DashboardOverview } from "@/api/types";
 import StatCard from "@/components/StatCard";
 import ScoreChip from "@/components/ScoreChip";
+import SalesMemberDashboard from "@/pages/SalesMemberDashboard";
+import { useAuthStore } from "@/stores/auth";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 export default function Dashboard() {
+  const { user } = useAuthStore();
+
+  if (user?.role !== "Admin") {
+    return <SalesMemberDashboard />;
+  }
+
+  return <AdminDashboard />;
+}
+
+function AdminDashboard() {
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -60,7 +72,7 @@ export default function Dashboard() {
           label: "Leads",
           data: labels.map((l) => counts[l]),
           backgroundColor: ["rgba(245, 158, 11, 0.9)", "rgba(245, 158, 11, 0.55)", "rgba(15, 23, 42, 0.20)"],
-          borderRadius: 10,
+          borderRadius: 2,
         },
       ],
     };
@@ -159,7 +171,7 @@ export default function Dashboard() {
           gap: 2,
         }}
       >
-          <Card sx={{ borderRadius: 4 }}>
+          <Card sx={{ borderRadius: 1 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Stack spacing={0.25}>
@@ -172,7 +184,7 @@ export default function Dashboard() {
               <Bar data={barData} />
             </CardContent>
           </Card>
-          <Card sx={{ borderRadius: 4, height: "100%" }}>
+          <Card sx={{ borderRadius: 1, height: "100%" }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
                 <Stack spacing={0.25}>
@@ -194,7 +206,7 @@ export default function Dashboard() {
           gap: 2,
         }}
       >
-        <Card sx={{ borderRadius: 4 }}>
+        <Card sx={{ borderRadius: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1.5 }}>
               <AutoAwesomeOutlined sx={{ color: "warning.main" }} />
@@ -213,7 +225,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        <Card sx={{ borderRadius: 4 }}>
+        <Card sx={{ borderRadius: 1 }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Typography sx={{ fontWeight: 900 }}>Recent Scores</Typography>
@@ -235,7 +247,7 @@ export default function Dashboard() {
                     justifyContent="space-between"
                     sx={{
                       p: 1.5,
-                      borderRadius: 3,
+                      borderRadius: 1,
                       border: "1px solid rgba(15, 23, 42, 0.08)",
                       bgcolor: "rgba(255, 255, 255, 0.7)",
                     }}

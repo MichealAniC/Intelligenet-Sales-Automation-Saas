@@ -70,3 +70,23 @@ class LeadStatus(str, Enum):
     UNQUALIFIED = "Unqualified"
     CONVERTED = "Converted"
     ARCHIVED = "Archived"
+
+
+class SalesProfile(str, Enum):
+    JUNIOR_SALES_REP = "Junior Sales Rep"
+    SENIOR_SALES_REP = "Senior Sales Rep"
+    INDUSTRY_SPECIALIST = "Industry Specialist"
+    TOP_PERFORMER = "Top Performer"
+
+
+class AvailabilityStatus(str, Enum):
+    AVAILABLE = "Available"
+    BUSY = "Busy"
+    ON_LEAVE = "On Leave"
+    INACTIVE = "Inactive"
+
+
+class ProfileStatus(str, Enum):
+    PENDING_CONFIGURATION = "Pending Configuration"
+    ACTIVE = "Active"
+    DISABLED = "Disabled"

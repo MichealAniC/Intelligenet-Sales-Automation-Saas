@@ -18,6 +18,12 @@ class DashboardRecentScore(BaseModel):
     created_at: datetime
     assigned_to_staff_id: str | None = None
     assigned_to_name: str | None = None
+    lead_status: str | None = None
+
+
+class PipelineStageCount(BaseModel):
+    stage: str
+    count: int
 
 
 class DashboardOverview(BaseModel):
@@ -29,3 +35,12 @@ class DashboardOverview(BaseModel):
     assigned_leads: int
     unassigned_leads: int
     recent_scores: list[DashboardRecentScore]
+
+
+class SalesDashboardOverview(BaseModel):
+    total_assigned: int
+    hot_count: int
+    open_opportunities: int
+    closed_won_count: int
+    pipeline_stages: list[PipelineStageCount]
+    priority_leads: list[DashboardRecentScore]

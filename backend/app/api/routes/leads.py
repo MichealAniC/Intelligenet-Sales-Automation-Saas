@@ -64,16 +64,20 @@ from app.schemas.lead_summary import LeadOpsListResponse, LeadSummaryItem
 from app.schemas.lead_ops import (
     BulkDeletePreview,
     BulkDeleteRequest,
+    LeadActivityCreate,
+    LeadActivityPublic,
     LeadEventPublic,
     LeadIntelligenceAI,
     LeadIntelligenceAssignment,
     LeadIntelligenceDetail,
     LeadNoteCreate,
     LeadNotePublic,
+    LeadStatusUpdate,
     LeadTagPublic,
 )
 from app.services.ml_mapping import to_model_features
 from app.services.prescriptive import decide
+from app.services.assignment_engine import assign_lead as route_assign_lead
 from app.services.lead_import import (
     build_column_mapping,
     read_tabular_upload,
@@ -144,6 +148,7 @@ def create_score_assign(
     assignment_mode: str = "keep_existing",
     batch_id=None,
     raw_data: dict[str, Any] | None = None,
+    skip_assignment: bool = False,
 ) -> LeadWorkflowResponse:
     if existing_lead_id is not None:
         existing = get_lead(db, organization_id=user.organization_id, lead_id=existing_lead_id)
@@ -210,42 +215,43 @@ def create_score_assign(
     decision = decide(category)
 
     assignment = None
-    existing_assignment = get_latest_assignment(db, organization_id=user.organization_id, lead_id=lead.lead_id)
-    if assignment_mode == "keep_existing" and existing_assignment is not None and not assignee_staff_id:
-        assignment = existing_assignment
-    else:
-        assignee = None
-        if assignee_staff_id:
-            candidate = get_user_by_staff_id(db, assignee_staff_id)
-            if candidate and candidate.organization_id == user.organization_id and candidate.role == UserRole.SALES:
-                assignee = candidate
+    if not skip_assignment:
+        existing_assignment = get_latest_assignment(db, organization_id=user.organization_id, lead_id=lead.lead_id)
+        if assignment_mode == "keep_existing" and existing_assignment is not None and not assignee_staff_id:
+            assignment = existing_assignment
+        else:
+            assignee = None
+            if assignee_staff_id:
+                candidate = get_user_by_staff_id(db, assignee_staff_id)
+                if candidate and candidate.organization_id == user.organization_id and candidate.role == UserRole.SALES:
+                    assignee = candidate
 
-        if assignee is None:
-            assignee = pick_assignee(db, organization_id=user.organization_id)
+            if assignee is None:
+                assignee = pick_assignee(db, organization_id=user.organization_id)
 
-        if assignee is not None:
-            assignment = create_assignment(
-                db,
-                organization_id=user.organization_id,
-                lead_id=lead.lead_id,
-                assigned_to=assignee.id,
-                assigned_by=user.id if user.role == UserRole.ADMIN else None,
-                priority=category,
-            )
-            log_lead_event(
-                db=db,
-                organization_id=user.organization_id,
-                lead_id=lead.lead_id,
-                actor_user_id=user.id,
-                batch_id=batch_id,
-                event_type="lead_assigned",
-                data={
-                    "assigned_to": str(assignee.id),
-                    "assigned_to_staff_id": assignee.staff_id,
-                    "assigned_to_name": assignee.full_name,
-                    "priority": category.value,
-                },
-            )
+            if assignee is not None:
+                assignment = create_assignment(
+                    db,
+                    organization_id=user.organization_id,
+                    lead_id=lead.lead_id,
+                    assigned_to=assignee.id,
+                    assigned_by=user.id if user.role == UserRole.ADMIN else None,
+                    priority=category,
+                )
+                log_lead_event(
+                    db=db,
+                    organization_id=user.organization_id,
+                    lead_id=lead.lead_id,
+                    actor_user_id=user.id,
+                    batch_id=batch_id,
+                    event_type="lead_assigned",
+                    data={
+                        "assigned_to": str(assignee.id),
+                        "assigned_to_staff_id": assignee.staff_id,
+                        "assigned_to_name": assignee.full_name,
+                        "priority": category.value,
+                    },
+                )
 
     return LeadWorkflowResponse(
         lead=LeadPublic.model_validate(lead),
@@ -410,6 +416,13 @@ async def validate_lead_import(
         )
     preview, _valid_payloads, issues, mapped_cols, missing_required, extras = standardize_and_validate_rows(df)
 
+    # Downgrade per-row data-quality errors to warnings: the /import endpoint
+    # handles invalid rows individually (skip or fail), so they should NOT block
+    # the Import-now button.  Only structural issues (missing columns) block.
+    for issue in issues:
+        if issue.severity == "error" and issue.row is not None:
+            issue.severity = "warning"
+
     if not missing_required:
         seen = set()
         for idx, row in df.iterrows():
@@ -458,7 +471,6 @@ async def validate_lead_import(
 async def import_leads(
     file: UploadFile = File(...),
     duplicate_mode: str = Form("update"),
-    assignment_mode: str = Form("keep_existing"),
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> LeadImportResponse:
@@ -468,9 +480,6 @@ async def import_leads(
     duplicate_mode = str(duplicate_mode).strip().lower()
     if duplicate_mode not in {"update", "skip"}:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid duplicate_mode")
-    assignment_mode = str(assignment_mode).strip().lower()
-    if assignment_mode not in {"keep_existing", "reassign"}:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid assignment_mode")
 
     raw = await file.read()
     if len(raw) > settings.LEAD_IMPORT_MAX_BYTES:
@@ -550,11 +559,6 @@ async def import_leads(
 
         try:
             standardized = standardize_row(mapped_row, row_num=row_num, issues=issues)
-            assignee_staff_id = (
-                str(standardized.get("assignee_staff_id") or "").strip() or None
-                if "assignee_staff_id" in standardized
-                else None
-            )
             email_str = str(standardized.get("email") or "").strip()
             exists = (
                 get_lead_by_email(db, organization_id=user.organization_id, email=email_str) if email_str else None
@@ -577,28 +581,14 @@ async def import_leads(
 
             payload = LeadCreate.model_validate(merged)
 
-            if assignee_staff_id:
-                candidate = get_user_by_staff_id(db, assignee_staff_id)
-                if not candidate or candidate.organization_id != user.organization_id or candidate.role != UserRole.SALES:
-                    issues.append(
-                        LeadImportIssue(
-                            severity="warning",
-                            row=row_num,
-                            field="assignee_staff_id",
-                            message="Assignee staff ID not found or not a Sales user; auto-assignment will be used.",
-                        )
-                    )
-                    assignee_staff_id = None
-
             workflow = create_score_assign(
                 db=db,
                 user=user,
                 payload=payload,
                 existing_lead_id=exists.lead_id if exists else None,
-                assignee_staff_id=assignee_staff_id,
-                assignment_mode=assignment_mode,
                 batch_id=batch.id if batch is not None else None,
                 raw_data={"original": original_row, "mapped": mapped_row},
+                skip_assignment=True,
             )
             if exists:
                 updated += 1
@@ -611,7 +601,7 @@ async def import_leads(
                     lead_id=workflow.lead.lead_id,
                     assigned_to=str(workflow.assignment.assigned_to) if workflow.assignment else None,
                     score_value=workflow.score.score_value,
-                    score_category=str(workflow.score.score_category),
+                    score_category=workflow.score.score_category.value if workflow.score.score_category else None,
                 )
             )
         except Exception as e:
@@ -687,6 +677,8 @@ def get_leads_ops(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
     q: str | None = None,
+    tier: str | None = None,
+    lead_status: str | None = None,
     limit: int = 50,
     offset: int = 0,
 ) -> LeadOpsListResponse:
@@ -790,6 +782,11 @@ def get_leads_ops(
 
     if user.role == UserRole.SALES:
         stmt = stmt.where(latest_assignment.assigned_to == user.id)
+
+    if tier:
+        stmt = stmt.where(latest_score.score_category == tier)
+    if lead_status:
+        stmt = stmt.where(Lead.lead_status == lead_status)
 
     stmt = stmt.order_by(Lead.created_at.desc()).limit(limit).offset(offset)
 
@@ -1129,6 +1126,77 @@ def add_lead_note(
     return LeadNotePublic.model_validate(note)
 
 
+@router.patch("/{lead_id}/status", response_model=LeadPublic)
+def update_lead_status(
+    lead_id: str,
+    payload: LeadStatusUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LeadPublic:
+    """Update pipeline stage for a lead. Accessible to both Admin and assigned Sales members."""
+    if user.role not in {UserRole.ADMIN, UserRole.SALES}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    lead = get_lead(db, organization_id=user.organization_id, lead_id=lead_id)
+    if not lead or lead.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+
+    if user.role == UserRole.SALES:
+        if not is_lead_assigned_to(db, organization_id=user.organization_id, lead_id=lead_id, assigned_to=user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    old_status = lead.lead_status
+    lead.lead_status = payload.lead_status
+    db.commit()
+    db.refresh(lead)
+
+    log_lead_event(
+        db=db,
+        organization_id=user.organization_id,
+        lead_id=lead_id,
+        actor_user_id=user.id,
+        event_type="lead_status_changed",
+        data={"old_status": old_status.value if old_status else None, "new_status": payload.lead_status.value},
+    )
+    return LeadPublic.model_validate(lead)
+
+
+@router.post("/{lead_id}/activities", response_model=LeadActivityPublic)
+def log_lead_activity(
+    lead_id: str,
+    payload: LeadActivityCreate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LeadActivityPublic:
+    """Log a sales activity (Call, Email, Meeting, Note) for a lead."""
+    if user.role not in {UserRole.ADMIN, UserRole.SALES}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    lead = get_lead(db, organization_id=user.organization_id, lead_id=lead_id)
+    if not lead or lead.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+
+    if user.role == UserRole.SALES:
+        if not is_lead_assigned_to(db, organization_id=user.organization_id, lead_id=lead_id, assigned_to=user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    event = LeadEvent(
+        organization_id=user.organization_id,
+        lead_id=lead_id,
+        actor_user_id=user.id,
+        event_type=f"activity_{payload.activity_type.lower()}",
+        data={
+            "activity_type": payload.activity_type,
+            "outcome": payload.outcome,
+            "notes": payload.notes,
+        },
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return LeadActivityPublic.model_validate(event)
+
+
 @router.post("/{lead_id}/tags", response_model=list[LeadTagPublic])
 def add_lead_tag(
     lead_id: str,
@@ -1465,3 +1533,72 @@ def bulk_delete_execute(
         db.commit()
 
     return preview
+
+
+@router.post("/trigger-auto-assignment")
+def trigger_auto_assignment(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> dict:
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    # Find leads in this org that have NO assignment record at all
+    assigned_lead_ids = (
+        select(LeadAssignment.lead_id)
+        .where(LeadAssignment.organization_id == user.organization_id)
+        .distinct()
+        .subquery()
+    )
+    unassigned_leads = list(
+        db.scalars(
+            select(Lead).where(
+                Lead.organization_id == user.organization_id,
+                Lead.is_deleted.is_(False),
+                Lead.lead_id.notin_(select(assigned_lead_ids)),
+            )
+        ).all()
+    )
+
+    total = len(unassigned_leads)
+    assigned_count = 0
+    failed_count = 0
+    assignments: list[dict] = []
+
+    for lead in unassigned_leads:
+        try:
+            result = route_assign_lead(
+                db,
+                lead=lead,
+                organization_id=user.organization_id,
+                assigned_by=user.id,
+            )
+            if result.assigned:
+                assigned_count += 1
+                assignments.append({
+                    "lead_id": lead.lead_id,
+                    "assigned_to": str(result.assignee.id),
+                    "assigned_to_name": result.assignee.full_name,
+                    "routing_score": round(result.score, 2),
+                })
+            else:
+                failed_count += 1
+                assignments.append({
+                    "lead_id": lead.lead_id,
+                    "assigned_to": None,
+                    "reason": result.reason,
+                })
+        except Exception as exc:
+            failed_count += 1
+            assignments.append({
+                "lead_id": lead.lead_id,
+                "assigned_to": None,
+                "reason": f"Error: {exc}",
+            })
+
+    return {
+        "total_unassigned": total,
+        "assigned": assigned_count,
+        "failed": failed_count,
+        "assignments": assignments,
+    }

@@ -42,6 +42,13 @@ export interface UserPublic {
   role: UserRole;
   created_at: string;
   organization_name?: string | null;
+  // Prescriptive Lead Routing attributes
+  sales_profile?: SalesProfile | null;
+  availability_status?: AvailabilityStatus | null;
+  performance_rating?: number | null;
+  industry_specializations?: string[];
+  auto_assignment_enabled?: boolean | null;
+  profile_status?: ProfileStatus | null;
 }
 
 export interface TokenResponse {
@@ -53,6 +60,7 @@ export interface TokenResponse {
 export interface LoginRequest {
   staff_id: string;
   password: string;
+  role: UserRole;
 }
 
 export interface AdminSignupRequest {
@@ -230,6 +238,7 @@ export interface DashboardRecentScore {
   created_at: string;
   assigned_to_staff_id?: string | null;
   assigned_to_name?: string | null;
+  lead_status?: string | null;
 }
 
 export interface DashboardOverview {
@@ -241,6 +250,20 @@ export interface DashboardOverview {
   assigned_leads: number;
   unassigned_leads: number;
   recent_scores: DashboardRecentScore[];
+}
+
+export interface PipelineStageCount {
+  stage: string;
+  count: number;
+}
+
+export interface SalesDashboardOverview {
+  total_assigned: number;
+  hot_count: number;
+  open_opportunities: number;
+  closed_won_count: number;
+  pipeline_stages: PipelineStageCount[];
+  priority_leads: DashboardRecentScore[];
 }
 
 export interface LeadEventPublic {
@@ -295,4 +318,51 @@ export interface LeadIntelligenceDetail {
   recent_events: LeadEventPublic[];
   notes: LeadNotePublic[];
   tags: LeadTagPublic[];
+}
+
+export type SalesProfile =
+  | "Junior Sales Rep"
+  | "Senior Sales Rep"
+  | "Industry Specialist"
+  | "Top Performer";
+
+export type AvailabilityStatus = "Available" | "Busy" | "On Leave" | "Inactive";
+
+export type ProfileStatus = "Pending Configuration" | "Active" | "Disabled";
+
+export interface TeamMemberWorkload {
+  id: UUID;
+  staff_id: string;
+  full_name: string;
+  sales_profile: SalesProfile | null;
+  availability_status: AvailabilityStatus;
+  performance_rating: number;
+  industry_specializations: string[];
+  auto_assignment_enabled: boolean;
+  profile_status: ProfileStatus;
+  assigned_leads: number;
+  capacity: number;
+  utilization_percent: number;
+}
+
+export interface RoutingProfileUpdate {
+  sales_profile?: SalesProfile | null;
+  availability_status?: AvailabilityStatus | null;
+  performance_rating?: number | null;
+  industry_specializations?: string[] | null;
+  auto_assignment_enabled?: boolean | null;
+  profile_status?: ProfileStatus | null;
+}
+
+export interface AutoAssignmentResponse {
+  total_unassigned: number;
+  assigned: number;
+  failed: number;
+  assignments: Array<{
+    lead_id: string;
+    assigned_to?: string | null;
+    assigned_to_name?: string | null;
+    routing_score?: number | null;
+    reason?: string | null;
+  }>;
 }

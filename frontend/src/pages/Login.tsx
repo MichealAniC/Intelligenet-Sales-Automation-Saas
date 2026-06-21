@@ -5,15 +5,22 @@ import {
   Box,
   Button,
   Checkbox,
+  FormControl,
   FormControlLabel,
+  FormLabel,
   Link as MuiLink,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   Typography,
 } from "@mui/material";
 import { api } from "@/api/http";
-import type { LoginRequest, TokenResponse } from "@/api/types";
+import type { LoginRequest, TokenResponse, UserRole } from "@/api/types";
 import { useAuthStore } from "@/stores/auth";
+
+const ADM_RE = /^ADM-\d{3}$/;
+const ST_RE = /^ST-\d{3}$/;
 
 export default function Login() {
   const setAuth = useAuthStore((s) => s.setAuth);
@@ -23,9 +30,16 @@ export default function Login() {
 
   const [staffId, setStaffId] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState<UserRole>("Admin");
   const [remember, setRemember] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const staffIdOk = useMemo(() => {
+    const trimmed = staffId.trim();
+    if (!trimmed) return true; // let required validation handle empty
+    return role === "Admin" ? ADM_RE.test(trimmed) : ST_RE.test(trimmed);
+  }, [staffId, role]);
 
   const redirectTo = useMemo(() => {
     const from = location?.state?.from;
@@ -39,9 +53,19 @@ export default function Login() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!staffIdOk) {
+      setError(
+        role === "Admin"
+          ? "Admin Staff ID must match ADM-XXX (e.g. ADM-001)"
+          : "Sales Staff ID must match ST-XXX (e.g. ST-001)",
+      );
+      return;
+    }
+
     setLoading(true);
     try {
-      const payload: LoginRequest = { staff_id: staffId, password };
+      const payload: LoginRequest = { staff_id: staffId.trim(), password, role };
       const res = await api.post<TokenResponse>("/auth/login", payload);
       setAuth(res.data);
       if (!remember) {
@@ -72,6 +96,18 @@ export default function Login() {
 
       <Box component="form" onSubmit={submit}>
         <Stack spacing={2}>
+          <FormControl component="fieldset">
+            <FormLabel component="legend">Role</FormLabel>
+            <RadioGroup
+              row
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+            >
+              <FormControlLabel value="Admin" control={<Radio />} label="Admin" />
+              <FormControlLabel value="Sales" control={<Radio />} label="Sales Member" />
+            </RadioGroup>
+          </FormControl>
+
           <TextField
             label="Staff ID"
             value={staffId}
@@ -79,6 +115,12 @@ export default function Login() {
             autoComplete="username"
             required
             fullWidth
+            error={staffId.trim().length > 0 && !staffIdOk}
+            helperText={
+              role === "Admin"
+                ? "Format: ADM-XXX (e.g. ADM-001)"
+                : "Format: ST-XXX (e.g. ST-001)"
+            }
           />
           <TextField
             label="Password"

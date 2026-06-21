@@ -18,9 +18,18 @@ def verify_password(password: str, password_hash: str) -> bool:
     return pwd_context.verify(password, password_hash)
 
 
-def create_access_token(subject: str) -> str:
+def create_access_token(
+    subject: str,
+    *,
+    role: str | None = None,
+    organization_id: str | None = None,
+) -> str:
     expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode = {"sub": subject, "exp": expire}
+    to_encode: dict = {"sub": subject, "exp": expire}
+    if role is not None:
+        to_encode["role"] = role
+    if organization_id is not None:
+        to_encode["org_id"] = organization_id
     return jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -29,4 +38,3 @@ def decode_token(token: str) -> dict:
         return jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
     except JWTError as exc:
         raise ValueError("Invalid token") from exc
-

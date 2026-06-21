@@ -21,15 +21,21 @@ import {
 import {
   AddOutlined,
   AnalyticsOutlined,
+  AssignmentIndOutlined,
+  BarChartOutlined,
   ChevronLeft,
   DashboardOutlined,
+  EventOutlined,
   GroupOutlined,
   Menu as MenuIcon,
   NotificationsNoneOutlined,
+  PersonOutlined,
   RuleOutlined,
   SettingsOutlined,
+  TaskAltOutlined,
   TrendingUpOutlined,
   UploadFileOutlined,
+  ViewListOutlined,
 } from "@mui/icons-material";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
@@ -55,27 +61,29 @@ export default function AppShell() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
 
   const nav = useMemo<NavItem[]>(() => {
-    const out: NavItem[] = [
-      { label: "Dashboard", href: "/app/dashboard", icon: <DashboardOutlined /> },
-      { label: "New Lead", href: "/app/leads/new", icon: <AddOutlined /> },
-      { label: "Leads", href: "/app/leads", icon: <TrendingUpOutlined /> },
-    ];
-
     if (user?.role === "Admin") {
-      out.push(
+      return [
+        { label: "Dashboard", href: "/app/dashboard", icon: <DashboardOutlined /> },
+        { label: "Leads", href: "/app/leads", icon: <TrendingUpOutlined /> },
         { label: "Import Leads", href: "/app/leads/import", icon: <UploadFileOutlined /> },
         { label: "Routing Rules", href: "/app/routing", icon: <RuleOutlined /> },
-        { label: "Team", href: "/app/team", icon: <GroupOutlined /> },
+        { label: "Sales Team", href: "/app/sales-team", icon: <GroupOutlined /> },
+        { label: "Team Management", href: "/app/team-management", icon: <BarChartOutlined /> },
+        { label: "Pipeline", href: "/app/pipeline", icon: <TrendingUpOutlined /> },
+        { label: "Analytics", href: "/app/analytics", icon: <AnalyticsOutlined /> },
         { label: "Settings", href: "/app/settings", icon: <SettingsOutlined /> },
-      );
+      ];
     }
 
-    out.push(
-      { label: "Pipeline", href: "/app/pipeline", icon: <TrendingUpOutlined /> },
-      { label: "Analytics", href: "/app/analytics", icon: <AnalyticsOutlined /> },
-    );
-
-    return out;
+    // Sales Member menu
+    return [
+      { label: "Dashboard", href: "/app/dashboard", icon: <DashboardOutlined /> },
+      { label: "My Leads", href: "/app/leads", icon: <AssignmentIndOutlined /> },
+      { label: "My Pipeline", href: "/app/pipeline", icon: <ViewListOutlined /> },
+      { label: "Tasks", href: "/app/tasks", icon: <TaskAltOutlined /> },
+      { label: "Activities", href: "/app/activities", icon: <EventOutlined /> },
+      { label: "Profile", href: "/app/me", icon: <PersonOutlined /> },
+    ];
   }, [user?.role]);
 
   const activeHref = useMemo(() => {
@@ -154,7 +162,7 @@ export default function AppShell() {
   );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100%" }}>
+    <Box sx={{ display: "flex", minHeight: "100%", overflowX: "hidden", maxWidth: "100vw" }}>
       <AppBar
         elevation={0}
         sx={{
@@ -186,7 +194,7 @@ export default function AppShell() {
                 display: "flex",
                 alignItems: "center",
                 border: "1px solid rgba(15, 23, 42, 0.12)",
-                borderRadius: 999,
+                borderRadius: 1,
                 px: 2,
                 py: 0.5,
                 bgcolor: "rgba(15, 23, 42, 0.02)",
@@ -281,6 +289,8 @@ export default function AppShell() {
           p: { xs: 2, md: 3 },
           pt: { xs: 10, md: 11 },
           width: "100%",
+          maxWidth: "100%",
+          overflowX: "hidden",
           bgcolor: "background.default",
           minHeight: "100vh",
         }}
