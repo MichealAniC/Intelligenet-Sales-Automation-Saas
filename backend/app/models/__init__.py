@@ -10,6 +10,8 @@ from app.models.enums import (
     PurchaseTimeline,
     SalesProfile,
     SeniorityLevel,
+    TaskPriority,
+    TaskStatus,
     UserRole,
 )
 from app.models.lead import Lead
@@ -23,6 +25,7 @@ from app.models.lead_tag_link import LeadTagLink
 from app.models.invitation import Invitation
 from app.models.organization import Organization
 from app.models.user import User
+from app.models.task import Task
 
 __all__ = [
     "AssignmentStatus",
@@ -46,6 +49,9 @@ __all__ = [
     "PurchaseTimeline",
     "SalesProfile",
     "SeniorityLevel",
+    "Task",
+    "TaskPriority",
+    "TaskStatus",
     "User",
     "UserRole",
 ]

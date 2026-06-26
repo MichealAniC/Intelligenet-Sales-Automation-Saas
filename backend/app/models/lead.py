@@ -117,4 +117,5 @@ class Lead(Base):
     events = relationship("LeadEvent", back_populates="lead", cascade="all, delete-orphan")
     notes = relationship("LeadNote", back_populates="lead", cascade="all, delete-orphan")
     tag_links = relationship("LeadTagLink", back_populates="lead", cascade="all, delete-orphan")
+    tasks = relationship("Task", back_populates="lead", cascade="all, delete-orphan")
     import_batch = relationship("LeadImportBatch", back_populates="leads")

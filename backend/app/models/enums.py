@@ -90,3 +90,15 @@ class ProfileStatus(str, Enum):
     PENDING_CONFIGURATION = "Pending Configuration"
     ACTIVE = "Active"
     DISABLED = "Disabled"
+
+
+class TaskPriority(str, Enum):
+    LOW = "Low"
+    MEDIUM = "Medium"
+    HIGH = "High"
+
+
+class TaskStatus(str, Enum):
+    PENDING = "Pending"
+    COMPLETED = "Completed"
+    CANCELED = "Canceled"

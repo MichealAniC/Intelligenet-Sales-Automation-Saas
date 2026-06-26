@@ -74,6 +74,7 @@ class User(Base):
         foreign_keys="LeadAssignment.assigned_by",
         back_populates="assigner",
     )
+    tasks = relationship("Task", back_populates="assigned_user", cascade="all, delete-orphan")
 
     @property
     def organization_name(self) -> str | None:
