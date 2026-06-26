@@ -12,12 +12,25 @@ import {
   TextField,
   Typography,
 } from "@mui/material";
-import { DataGrid, type GridColDef } from "@mui/x-data-grid";
+import { DataGrid, type GridColDef, type GridSortModel } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/http";
-import type { AutoAssignmentResponse, DashboardOverview, LeadOpsListResponse, LeadSummaryItem } from "@/api/types";
+import type {
+  AutoAssignmentResponse,
+  DashboardOverview,
+  LeadOpsListResponse,
+  LeadSummaryItem,
+  LeadLifecycleState,
+} from "@/api/types";
 import ScoreChip from "@/components/ScoreChip";
 import { useAuthStore } from "@/stores/auth";
+
+// Helper for tier priority sorting
+const tierPriority: Record<string, number> = {
+  "Hot": 3,
+  "Warm": 2,
+  "Cold": 1,
+};
 
 export default function Leads() {
   const user = useAuthStore((s) => s.user);
@@ -35,6 +48,7 @@ export default function Leads() {
   const [autoAssignResult, setAutoAssignResult] = useState<string | null>(null);
   const [tierFilter, setTierFilter] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("");
+  const [lifecycleFilter, setLifecycleFilter] = useState<LeadLifecycleState | "">("");
 
   useEffect(() => {
     let mounted = true;
@@ -92,8 +106,27 @@ export default function Leads() {
     }
   };
 
+  // Sort items first by score desc, then tier priority desc
+  const sortedItems = useMemo(() => {
+    return [...items].sort((a, b) => {
+      const scoreA = a.score_value ?? -1;
+      const scoreB = b.score_value ?? -1;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+
+      const tierA = tierPriority[a.score_category ?? ""] ?? 0;
+      const tierB = tierPriority[b.score_category ?? ""] ?? 0;
+      return tierB - tierA;
+    });
+  }, [items]);
+
+  // Filter by lifecycle state if needed
+  const filteredItems = useMemo(() => {
+    if (!lifecycleFilter) return sortedItems;
+    return sortedItems.filter((item) => item.lead.lifecycle_state === lifecycleFilter);
+  }, [sortedItems, lifecycleFilter]);
+
   const rows = useMemo(() => {
-    return items.map((i) => ({
+    return filteredItems.map((i) => ({
       id: i.lead.lead_id,
       ...i.lead,
       score_value: i.score_value ?? null,
@@ -104,15 +137,15 @@ export default function Leads() {
       assigned_to_name: i.assigned_to_name ?? null,
       assignment_status: i.assignment_status ?? null,
     }));
-  }, [items]);
+  }, [filteredItems]);
 
   const featured = useMemo(() => {
-    const withScore = items.filter((i) => typeof i.score_value === "number") as Array<
+    const withScore = filteredItems.filter((i) => typeof i.score_value === "number") as Array<
       LeadSummaryItem & { score_value: number }
     >;
     const topScore = [...withScore].sort((a, b) => (b.score_value ?? 0) - (a.score_value ?? 0))[0] || null;
     const mostEngaged =
-      [...items].sort((a, b) => {
+      [...filteredItems].sort((a, b) => {
         const la = a.lead;
         const lb = b.lead;
         const ea =
@@ -130,7 +163,7 @@ export default function Leads() {
         return eb - ea;
       })[0] || null;
     return { topScore, mostEngaged };
-  }, [items]);
+  }, [filteredItems]);
 
   const columns = useMemo<GridColDef[]>(
     () => [
@@ -158,6 +191,12 @@ export default function Leads() {
           const c = params.row.score_category;
           return c ? <ScoreChip category={c} /> : "—";
         },
+      },
+      {
+        field: "lifecycle_state",
+        headerName: "Lifecycle",
+        width: 140,
+        sortable: true,
       },
       {
         field: "assigned_rep",
@@ -320,6 +359,18 @@ export default function Leads() {
               <MenuItem value="Converted">Converted</MenuItem>
               <MenuItem value="Archived">Archived</MenuItem>
             </Select>
+            <Select
+              value={lifecycleFilter}
+              displayEmpty
+              onChange={(e) => { setPage(0); setLifecycleFilter(e.target.value as any); }}
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">All Lifecycles</MenuItem>
+              <MenuItem value="ACTIVE">Active</MenuItem>
+              <MenuItem value="NURTURING">Nurturing</MenuItem>
+              <MenuItem value="CLOSED_WON">Closed Won</MenuItem>
+              <MenuItem value="CLOSED_LOST">Closed Lost</MenuItem>
+            </Select>
             {isAdmin ? (
               <>
                 <Button variant="outlined" onClick={() => navigate("/app/leads/import")}>
@@ -343,8 +394,8 @@ export default function Leads() {
               columns={columns}
               loading={loading}
               disableRowSelectionOnClick
-              rowCount={total}
-              paginationMode="server"
+              rowCount={lifecycleFilter ? rows.length : total}
+              paginationMode={lifecycleFilter ? "client" : "server"}
               paginationModel={{ page, pageSize }}
               onPaginationModelChange={(m) => {
                 setPage(m.page);

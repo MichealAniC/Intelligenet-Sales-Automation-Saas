@@ -1151,9 +1151,6 @@ def update_lead(
     update_data = payload.model_dump(exclude_unset=True)
     for key, value in update_data.items():
         setattr(lead, key, value)
-    
-    db.commit()
-    db.refresh(lead)
 
     # If lifecycle state changed, create an activity
     if old_lifecycle_state != lead.lifecycle_state:
@@ -1161,15 +1158,16 @@ def update_lead(
         from app.models.enums import ActivityType, ActivityOutcome
         activity = Activity(
             organization_id=user.organization_id,
-            lead_id=lead_id,
+            lead_id=lead.lead_id,
             user_id=user.id,
             activity_type=ActivityType.NOTE,
             outcome=ActivityOutcome.COMPLETED,
-            notes=f"Lead moved from {old_lifecycle_state.value} to {lead.lifecycle_state.value}",
+            notes=f"Lead moved from {old_lifecycle_state.value if old_lifecycle_state else 'None'} to {lead.lifecycle_state.value}",
         )
         db.add(activity)
-        db.commit()
-        db.refresh(activity)
+
+    db.commit()
+    db.refresh(lead)
 
     return LeadPublic.model_validate(lead)
 

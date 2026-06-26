@@ -31,6 +31,25 @@ export type LeadStatus =
   | "Converted"
   | "Archived";
 
+export interface LeadStatusUpdate {
+  lead_status: LeadStatus;
+}
+
+export type ActivityType = "Call" | "Email" | "Meeting" | "Note";
+
+export type ActivityOutcome =
+  | "Left Message"
+  | "Connected"
+  | "No Answer"
+  | "Completed"
+  | "Scheduled";
+
+export type LeadLifecycleState =
+  | "ACTIVE"
+  | "NURTURING"
+  | "CLOSED_WON"
+  | "CLOSED_LOST";
+
 export type UUID = string;
 
 export interface UserPublic {
@@ -173,12 +192,50 @@ export interface LeadCreate {
   estimated_budget: EstimatedBudget;
   purchase_timeline: PurchaseTimeline;
   lead_status?: LeadStatus | null;
+  lifecycle_state?: LeadLifecycleState;
+  next_followup_date?: string | null;
+}
+
+export interface LeadUpdate {
+  full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  job_title?: string | null;
+  seniority_level?: SeniorityLevel | null;
+  department?: string | null;
+  country?: string | null;
+  company_name?: string | null;
+  company_industry?: string | null;
+  company_size_category?: CompanySizeCategory | null;
+  company_size_range?: string | null;
+  estimated_annual_revenue?: number | null;
+  lead_source?: LeadSource | null;
+  date_captured?: string | null;
+  website_visits?: number | null;
+  pages_viewed?: number | null;
+  average_time_on_site?: number | null;
+  email_open_rate?: number | null;
+  email_click_rate?: number | null;
+  webinar_attendance?: boolean | null;
+  last_interaction_days?: number | null;
+  meeting_scheduled?: boolean | null;
+  follow_up_status?: FollowUpStatus | null;
+  estimated_budget?: EstimatedBudget | null;
+  purchase_timeline?: PurchaseTimeline | null;
+  lead_status?: LeadStatus | null;
+  lifecycle_state?: LeadLifecycleState | null;
+  next_followup_date?: string | null;
+  converted?: boolean | null;
 }
 
 export interface LeadPublic extends LeadCreate {
   lead_id: string;
   full_name: string;
   lead_status: LeadStatus;
+  lifecycle_state: LeadLifecycleState;
+  next_followup_date?: string | null;
   converted: boolean;
   created_at: string;
 }
@@ -354,6 +411,49 @@ export interface RoutingProfileUpdate {
   profile_status?: ProfileStatus | null;
 }
 
+export interface WorkloadDashboard {
+  user_id: UUID;
+  capacity: number;
+  active_leads: number;
+  available_capacity: number;
+  utilization: number;
+  nurturing_leads: number;
+  won_leads: number;
+  lost_leads: number;
+}
+
+export interface TeamMemberWorkload extends WorkloadDashboard {
+  staff_id: string;
+  full_name: string;
+  sales_profile: SalesProfile | null;
+  availability_status: AvailabilityStatus;
+  performance_rating: number;
+  industry_specializations: string[];
+  auto_assignment_enabled: boolean;
+  profile_status: ProfileStatus;
+}
+
+export interface TeamWorkloadResponse {
+  team_workload: TeamMemberWorkload[];
+}
+
+export interface ActivityCreate {
+  activity_type: ActivityType;
+  outcome: ActivityOutcome;
+  notes?: string | null;
+}
+
+export interface ActivityPublic {
+  activity_id: UUID;
+  organization_id: UUID;
+  lead_id: string;
+  user_id: UUID;
+  activity_type: ActivityType;
+  outcome: ActivityOutcome;
+  notes?: string | null;
+  created_at: string;
+}
+
 export interface AutoAssignmentResponse {
   total_unassigned: number;
   assigned: number;
@@ -365,4 +465,11 @@ export interface AutoAssignmentResponse {
     routing_score?: number | null;
     reason?: string | null;
   }>;
+}
+
+export interface AnalyticsOverview {
+  total_pipeline_value: number;
+  leads_by_status: Record<string, number>;
+  leads_by_source: Record<string, number>;
+  leads_by_tier: Record<string, number>;
 }

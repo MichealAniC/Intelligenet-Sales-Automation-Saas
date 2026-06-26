@@ -21,29 +21,47 @@ import {
   NoteOutlined,
   RocketLaunchOutlined,
   TrendingUpOutlined,
+  AccessTimeOutlined,
 } from "@mui/icons-material";
 import { useNavigate, useParams } from "react-router-dom";
-import { api } from "@/api/http";
-import type { LeadIntelligenceDetail, LeadStatus } from "@/api/types";
+import { api, getLeadActivities, createActivity, updateLead } from "@/api/http";
+import type { LeadIntelligenceDetail, LeadStatus, ActivityType, ActivityOutcome, LeadLifecycleState, ActivityPublic } from "@/api/types";
 import ScoreChip from "@/components/ScoreChip";
 import { useAuthStore } from "@/stores/auth";
 
 const PIPELINE_STAGES: LeadStatus[] = ["New", "Contacted", "Qualified", "Unqualified", "Converted", "Archived"];
 
-const ACTIVITY_TYPES = [
+const ACTIVITY_TYPES: { value: ActivityType; label: string; icon: React.ReactNode }[] = [
   { value: "Call", label: "Call", icon: <CallOutlined sx={{ fontSize: 18 }} /> },
   { value: "Email", label: "Email", icon: <EmailOutlined sx={{ fontSize: 18 }} /> },
   { value: "Meeting", label: "Meeting", icon: <EventOutlined sx={{ fontSize: 18 }} /> },
   { value: "Note", label: "Note", icon: <NoteOutlined sx={{ fontSize: 18 }} /> },
 ];
 
-const ACTIVITY_OUTCOMES = ["Positive", "Neutral", "Negative", "No Response"];
+const ACTIVITY_OUTCOMES: { value: ActivityOutcome; label: string }[] = [
+  { value: "Left Message", label: "Left Message" },
+  { value: "Connected", label: "Connected" },
+  { value: "No Answer", label: "No Answer" },
+  { value: "Completed", label: "Completed" },
+  { value: "Scheduled", label: "Scheduled" },
+];
+
+const LIFECYCLE_OPTIONS: { value: LeadLifecycleState; label: string; color?: string }[] = [
+  { value: "ACTIVE", label: "Active", color: "success" },
+  { value: "NURTURING", label: "Nurturing", color: "warning" },
+  { value: "CLOSED_WON", label: "Closed Won", color: "success" },
+  { value: "CLOSED_LOST", label: "Closed Lost", color: "error" },
+];
 
 const EVENT_ICONS: Record<string, React.ReactNode> = {
   activity_call: <CallOutlined sx={{ fontSize: 16 }} />,
   activity_email: <EmailOutlined sx={{ fontSize: 16 }} />,
   activity_meeting: <EventOutlined sx={{ fontSize: 16 }} />,
   activity_note: <NoteOutlined sx={{ fontSize: 16 }} />,
+  Call: <CallOutlined sx={{ fontSize: 16 }} />,
+  Email: <EmailOutlined sx={{ fontSize: 16 }} />,
+  Meeting: <EventOutlined sx={{ fontSize: 16 }} />,
+  Note: <NoteOutlined sx={{ fontSize: 16 }} />,
 };
 
 export default function LeadDetail() {
@@ -52,16 +70,21 @@ export default function LeadDetail() {
   const user = useAuthStore((s) => s.user);
 
   const [data, setData] = useState<LeadIntelligenceDetail | null>(null);
+  const [activities, setActivities] = useState<ActivityPublic[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [noteBody, setNoteBody] = useState("");
   const [tagName, setTagName] = useState("");
   const [actionBusy, setActionBusy] = useState(false);
   // Activity logging state
-  const [activityType, setActivityType] = useState("Call");
-  const [activityOutcome, setActivityOutcome] = useState("Positive");
+  const [activityType, setActivityType] = useState<ActivityType>("Call");
+  const [activityOutcome, setActivityOutcome] = useState<ActivityOutcome>("Connected");
   const [activityNotes, setActivityNotes] = useState("");
   const [activityBusy, setActivityBusy] = useState(false);
+  // Lifecycle state
+  const [selectedState, setSelectedState] = useState<LeadLifecycleState | null>(null);
+  const [nextFollowUpDate, setNextFollowUpDate] = useState("");
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const canAdminAct = user?.role === "Admin";
   const isSales = user?.role === "Sales";
@@ -80,8 +103,12 @@ export default function LeadDetail() {
 
   const refresh = useCallback(async () => {
     if (!leadId) return;
-    const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-    setData(res.data);
+    const [intelligenceRes, activitiesRes] = await Promise.all([
+      api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`),
+      getLeadActivities(leadId),
+    ]);
+    setData(intelligenceRes.data);
+    setActivities(activitiesRes);
   }, [leadId]);
 
   useEffect(() => {
@@ -91,8 +118,7 @@ export default function LeadDetail() {
       setError(null);
       setLoading(true);
       try {
-        const res = await api.get<LeadIntelligenceDetail>(`/leads/${encodeURIComponent(leadId)}/intelligence`);
-        if (mounted) setData(res.data);
+        await refresh();
       } catch (err: any) {
         const detail = err?.response?.data?.detail;
         if (mounted) setError(typeof detail === "string" ? detail : "Failed to load lead intelligence");
@@ -101,7 +127,7 @@ export default function LeadDetail() {
       }
     })();
     return () => { mounted = false; };
-  }, [leadId]);
+  }, [refresh]);
 
   const onStatusChange = async (newStatus: string) => {
     if (!leadId) return;
@@ -116,11 +142,39 @@ export default function LeadDetail() {
     }
   };
 
+  const onLifecycleChange = async () => {
+    if (!leadId || !selectedState) return;
+    setActionBusy(true);
+    try {
+      const payload: any = {
+        lifecycle_state: selectedState,
+      };
+      if (selectedState === "NURTURING" && nextFollowUpDate) {
+        // Ensure we convert to proper ISO string for Pydantic
+        payload.next_followup_date = `${nextFollowUpDate}:00.000Z`;
+      }
+      console.log("Sending payload:", payload);
+      await updateLead(leadId, payload);
+      // Reset state variables
+      setSelectedState(null);
+      setShowDatePicker(false);
+      setNextFollowUpDate("");
+      await refresh();
+    } catch (err: any) {
+      console.error("FULL API ERROR:", err.response?.data);
+      const errorMsg = err.response?.data?.detail || err.message;
+      alert(`Error: ${JSON.stringify(errorMsg)}`);
+      setError(errorMsg || "Failed to update lifecycle state");
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   const onLogActivity = async () => {
     if (!leadId) return;
     setActivityBusy(true);
     try {
-      await api.post(`/leads/${encodeURIComponent(leadId)}/activities`, {
+      await createActivity(leadId, {
         activity_type: activityType,
         outcome: activityOutcome,
         notes: activityNotes.trim() || null,
@@ -206,13 +260,34 @@ export default function LeadDetail() {
   const lead = data?.lead;
   const currentStatusIdx = lead ? PIPELINE_STAGES.indexOf(lead.lead_status) : -1;
 
+  // Combined timeline of activities and events
+  const combinedTimeline = useMemo(() => {
+    const events = data?.recent_events?.map(e => ({
+      ...e,
+      type: "event" as const,
+    })) || [];
+    const acts = activities.map(a => ({
+      ...a,
+      type: "activity" as const,
+    }));
+    
+    const all = [...events, ...acts];
+    all.sort((a, b) => {
+      const dateA = new Date(a.created_at);
+      const dateB = new Date(b.created_at);
+      return dateB.getTime() - dateA.getTime();
+    });
+    
+    return all;
+  }, [data?.recent_events, activities]);
+
   return (
     <Stack spacing={2.5}>
       {/* Header */}
       <Stack direction="row" alignItems="center" justifyContent="space-between">
         <Stack spacing={0.25}>
           <Typography variant="h4" sx={{ fontWeight: 900, letterSpacing: -0.6 }}>
-            Lead Intelligence
+            Lead Command Center
           </Typography>
           <Typography color="text.secondary">{leadId}</Typography>
         </Stack>
@@ -234,6 +309,83 @@ export default function LeadDetail() {
       </Stack>
 
       {error ? <Alert severity="warning" onClose={() => setError(null)}>{error}</Alert> : null}
+
+      {/* Lifecycle State */}
+      <Card sx={{ borderRadius: 1 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+            <RocketLaunchOutlined sx={{ color: "primary.main" }} />
+            <Typography sx={{ fontWeight: 900 }}>Lifecycle State</Typography>
+            <Typography variant="body2" color="text.secondary">
+              — Current: <b>{lead?.lifecycle_state ?? "—"}</b>
+            </Typography>
+          </Stack>
+          <Stack direction="column" spacing={2}>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {LIFECYCLE_OPTIONS.map((option) => {
+                const isCurrent = lead?.lifecycle_state === option.value;
+                const isSelected = selectedState === option.value;
+                return (
+                  <Button
+                    key={option.value}
+                    variant={isSelected ? "contained" : isCurrent ? "contained" : "outlined"}
+                    color={option.color as any}
+                    disabled={actionBusy || loading}
+                    onClick={() => {
+                      setSelectedState(option.value);
+                      if (option.value === "NURTURING") {
+                        setShowDatePicker(true);
+                      } else {
+                        setShowDatePicker(false);
+                        setNextFollowUpDate("");
+                      }
+                    }}
+                    sx={{ borderRadius: 1, minWidth: 130 }}
+                  >
+                    {option.label}
+                  </Button>
+                );
+              })}
+            </Stack>
+            {showDatePicker && (
+              <Stack direction="row" spacing={2} alignItems="center">
+                <TextField
+                  label="Next Follow-Up Date"
+                  type="datetime-local"
+                  value={nextFollowUpDate}
+                  onChange={(e) => setNextFollowUpDate(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ flexGrow: 1 }}
+                />
+                <Button
+                  variant="contained"
+                  disabled={actionBusy || !nextFollowUpDate || selectedState !== "NURTURING"}
+                  onClick={onLifecycleChange}
+                >
+                  Set State
+                </Button>
+              </Stack>
+            )}
+            {selectedState && !showDatePicker && selectedState !== lead?.lifecycle_state && (
+              <Button
+                variant="contained"
+                disabled={actionBusy}
+                onClick={onLifecycleChange}
+              >
+                Update State
+              </Button>
+            )}
+            {lead?.next_followup_date && (
+              <Stack direction="row" spacing={1} alignItems="center">
+                <AccessTimeOutlined color="action" />
+                <Typography variant="body2" color="text.secondary">
+                  Next follow-up: {new Date(lead.next_followup_date).toLocaleString()}
+                </Typography>
+              </Stack>
+            )}
+          </Stack>
+        </CardContent>
+      </Card>
 
       {/* Pipeline Stepper */}
       <Card sx={{ borderRadius: 1 }}>
@@ -430,11 +582,11 @@ export default function LeadDetail() {
               </Stack>
               <Select
                 value={activityOutcome}
-                onChange={(e) => setActivityOutcome(e.target.value)}
+                onChange={(e) => setActivityOutcome(e.target.value as ActivityOutcome)}
                 size="small"
               >
                 {ACTIVITY_OUTCOMES.map((o) => (
-                  <MenuItem key={o} value={o}>{o}</MenuItem>
+                  <MenuItem key={o.value} value={o.value}>{o.label}</MenuItem>
                 ))}
               </Select>
               <TextField
@@ -464,59 +616,99 @@ export default function LeadDetail() {
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
               <Typography sx={{ fontWeight: 900 }}>Activity Timeline</Typography>
               <Typography variant="body2" color="text.secondary">
-                {data?.recent_events?.length ?? 0} events
+                {combinedTimeline.length} events
               </Typography>
             </Stack>
-            {data?.recent_events?.length ? (
+            {combinedTimeline.length ? (
               <Stack spacing={1}>
-                {data.recent_events.map((e) => {
-                  const evtData = e.data as any;
-                  const isActivity = e.event_type.startsWith("activity_");
-                  return (
-                    <Box
-                      key={e.id}
-                      sx={{
-                        border: "1px solid rgba(15, 23, 42, 0.08)",
-                        borderRadius: 1,
-                        p: 1.5,
-                        bgcolor: isActivity ? "rgba(37, 99, 235, 0.02)" : undefined,
-                      }}
-                    >
-                      <Stack direction="row" alignItems="center" justifyContent="space-between">
-                        <Stack direction="row" alignItems="center" spacing={0.75}>
-                          {EVENT_ICONS[e.event_type] ?? null}
-                          <Typography sx={{ fontWeight: 800 }}>
-                            {isActivity ? evtData?.activity_type ?? e.event_type : e.event_type.replace(/_/g, " ")}
+                {combinedTimeline.map((item) => {
+                  if (item.type === "event") {
+                    const e = item;
+                    const evtData = e.data as any;
+                    const isActivity = e.event_type.startsWith("activity_");
+                    return (
+                      <Box
+                        key={e.id}
+                        sx={{
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          borderRadius: 1,
+                          p: 1.5,
+                          bgcolor: isActivity ? "rgba(37, 99, 235, 0.02)" : undefined,
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Stack direction="row" alignItems="center" spacing={0.75}>
+                            {EVENT_ICONS[e.event_type] ?? null}
+                            <Typography sx={{ fontWeight: 800 }}>
+                              {isActivity ? evtData?.activity_type ?? e.event_type : e.event_type.replace(/_/g, " ")}
+                            </Typography>
+                            {evtData?.outcome && (
+                              <Chip
+                                size="small"
+                                label={evtData.outcome}
+                                color={
+                                  evtData.outcome === "Positive" ? "success" :
+                                  evtData.outcome === "Negative" ? "error" : "default"
+                                }
+                                sx={{ fontWeight: 700 }}
+                              />
+                            )}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(e.created_at).toLocaleString()}
                           </Typography>
-                          {evtData?.outcome && (
+                        </Stack>
+                        {evtData?.notes ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {evtData.notes}
+                          </Typography>
+                        ) : e.data && !isActivity ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {typeof e.data === "object"
+                              ? Object.entries(e.data).map(([k, v]) => `${k}: ${v}`).join(", ")
+                              : JSON.stringify(e.data)}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                    );
+                  } else {
+                    const a = item;
+                    return (
+                      <Box
+                        key={a.activity_id}
+                        sx={{
+                          border: "1px solid rgba(15, 23, 42, 0.08)",
+                          borderRadius: 1,
+                          p: 1.5,
+                          bgcolor: "rgba(37, 99, 235, 0.02)",
+                        }}
+                      >
+                        <Stack direction="row" alignItems="center" justifyContent="space-between">
+                          <Stack direction="row" alignItems="center" spacing={0.75}>
+                            {EVENT_ICONS[a.activity_type] ?? null}
+                            <Typography sx={{ fontWeight: 800 }}>{a.activity_type}</Typography>
                             <Chip
                               size="small"
-                              label={evtData.outcome}
+                              label={a.outcome}
                               color={
-                                evtData.outcome === "Positive" ? "success" :
-                                evtData.outcome === "Negative" ? "error" : "default"
+                                a.outcome === "Connected" || a.outcome === "Completed" ? "success" :
+                                a.outcome === "No Answer" ? "default" : "warning"
                               }
                               sx={{ fontWeight: 700 }}
                             />
-                          )}
+                          </Stack>
+                          <Typography variant="caption" color="text.secondary">
+                            {new Date(a.created_at).toLocaleString()}
+                          </Typography>
                         </Stack>
-                        <Typography variant="caption" color="text.secondary">
-                          {new Date(e.created_at).toLocaleString()}
-                        </Typography>
-                      </Stack>
-                      {evtData?.notes ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {evtData.notes}
-                        </Typography>
-                      ) : e.data && !isActivity ? (
-                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                          {typeof e.data === "object"
-                            ? Object.entries(e.data).map(([k, v]) => `${k}: ${v}`).join(", ")
-                            : JSON.stringify(e.data)}
-                        </Typography>
-                      ) : null}
-                    </Box>
-                  );
+                        {a.notes ? (
+                          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                            {a.notes}
+                          </Typography>
+                        ) : null}
+                      </Box>
+                    );
+                  }
                 })}
               </Stack>
             ) : (

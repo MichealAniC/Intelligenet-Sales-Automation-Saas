@@ -13,7 +13,7 @@ from app.models.lead import Lead
 from app.models.lead_assignment import LeadAssignment
 from app.models.enums import UserRole, LeadLifecycleState
 from app.models.user import User
-from app.schemas.workload import WorkloadDashboard, TeamWorkloadResponse
+from app.schemas.workload import WorkloadDashboard, TeamWorkloadResponse, TeamMemberWorkload
 
 router = APIRouter(prefix="/workload", tags=["workload"])
 
@@ -147,8 +147,16 @@ def get_team_workload(
         utilization = (active / capacity) if capacity > 0 else 0.0
 
         team_workload.append(
-            WorkloadDashboard(
+            TeamMemberWorkload(
                 user_id=user.id,
+                staff_id=user.staff_id,
+                full_name=user.full_name,
+                sales_profile=user.sales_profile,
+                availability_status=user.availability_status,
+                performance_rating=user.performance_rating or 0,
+                industry_specializations=user.industry_specializations or [],
+                auto_assignment_enabled=user.auto_assignment_enabled or False,
+                profile_status=user.profile_status,
                 capacity=capacity,
                 active_leads=active,
                 available_capacity=available,

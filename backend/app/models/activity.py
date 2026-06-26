@@ -9,6 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 from app.models.enums import ActivityType, ActivityOutcome
+from app.models.utils import enum_values
 
 
 class Activity(Base):
@@ -35,11 +36,11 @@ class Activity(Base):
         nullable=False,
     )
     activity_type: Mapped[ActivityType] = mapped_column(
-        Enum(ActivityType, name="activity_type"),
+        Enum(ActivityType, name="activity_type", values_callable=enum_values),
         nullable=False,
     )
     outcome: Mapped[ActivityOutcome] = mapped_column(
-        Enum(ActivityOutcome, name="activity_outcome"),
+        Enum(ActivityOutcome, name="activity_outcome", values_callable=enum_values),
         nullable=False,
     )
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

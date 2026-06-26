@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   Alert,
   Box,
@@ -22,7 +22,7 @@ import CheckCircleOutline from "@mui/icons-material/CheckCircleOutline";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import { useNavigate } from "react-router-dom";
 import { api } from "@/api/http";
-import type { LeadImportResponse, LeadImportValidateResponse } from "@/api/types";
+import type { LeadImportResponse } from "@/api/types";
 
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
@@ -38,107 +38,34 @@ function downloadBlob(blob: Blob, filename: string) {
 export default function LeadImport() {
   const navigate = useNavigate();
   const [file, setFile] = useState<File | null>(null);
-  const [validating, setValidating] = useState(false);
   const [importing, setImporting] = useState(false);
-  const [validateProgress, setValidateProgress] = useState<number | null>(null);
   const [importProgress, setImportProgress] = useState<number | null>(null);
   const [duplicateMode, setDuplicateMode] = useState<"update" | "skip">("update");
-  const [validation, setValidation] = useState<LeadImportValidateResponse | null>(null);
   const [result, setResult] = useState<LeadImportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [previewSelectedRow, setPreviewSelectedRow] = useState<number | null>(null);
-  const [importPhase, setImportPhase] = useState<"idle" | "uploading" | "scoring" | "saving" | "done">("idle");
+  const [importPhase, setImportPhase] = useState<
+    "idle" | "uploading" | "scoring" | "saving" | "done"
+  >("idle");
 
   const setDroppedFile = (f: File | null) => {
     setFile(f);
-    setValidation(null);
     setResult(null);
-    setPreviewSelectedRow(null);
+    setError(null);
   };
 
-  const hasBlockingErrors = useMemo(() => {
-    if (!validation) return true;
-    if (validation.missing_required_columns.length) return true;
-    return validation.issues.some((i) => i.severity === "error");
-  }, [validation]);
-
-  const previewGridRows = useMemo(() => {
-    return (validation?.preview_rows ?? []).map((r: any, i) => ({ id: i, ...r }));
-  }, [validation?.preview_rows]);
-
-  const previewColumns = useMemo<GridColDef[]>(() => {
-    const rows = validation?.preview_rows ?? [];
-    const keys = new Set<string>();
-    for (const r of rows) for (const k of Object.keys(r)) keys.add(k);
-    const ordered = ["__row__", ...Array.from(keys).filter((k) => k !== "__row__")];
-    return ordered.map((k) => ({
-      field: k,
-      headerName: k === "__row__" ? "Row" : k,
-      width: k === "__row__" ? 80 : 160,
-      flex: k === "__row__" ? undefined : 1,
-    }));
-  }, [validation?.preview_rows]);
-
-  const issueRows = useMemo(() => {
-    const issues = validation?.issues ?? result?.issues ?? [];
-    return issues.map((i, idx) => ({ id: idx, ...i }));
-  }, [result?.issues, validation?.issues]);
-
-  const issueColumns = useMemo<GridColDef[]>(
-    () => [
-      { field: "severity", headerName: "Severity", width: 120 },
-      { field: "row", headerName: "Row", width: 90 },
-      { field: "field", headerName: "Field", width: 180 },
-      { field: "message", headerName: "Message", flex: 1, minWidth: 320 },
-    ],
-    [],
-  );
-
-  const resultRows = useMemo(() => {
+  const resultRows = () => {
     const rows = result?.results ?? [];
     return rows.map((r, idx) => ({ id: idx, ...r }));
-  }, [result?.results]);
-
-  const resultColumns = useMemo<GridColDef[]>(
-    () => [
-      { field: "row", headerName: "Row", width: 90 },
-      { field: "status", headerName: "Status", width: 160 },
-      { field: "lead_id", headerName: "Lead ID", width: 140 },
-      { field: "score_value", headerName: "Score", width: 110 },
-      { field: "score_category", headerName: "Tier", width: 120 },
-      { field: "message", headerName: "Message", flex: 1, minWidth: 280 },
-    ],
-    [],
-  );
-
-  const onValidate = async () => {
-    if (!file) return;
-    setError(null);
-    setValidating(true);
-    setValidateProgress(null);
-    setValidation(null);
-    setResult(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await api.post<LeadImportValidateResponse>("/leads/import/validate", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-        timeout: 120_000,
-        onUploadProgress: (e) => {
-          const total = e.total ?? 0;
-          if (!total) return;
-          setValidateProgress(Math.min(100, Math.round((e.loaded / total) * 100)));
-        },
-      });
-      setValidation(res.data);
-    } catch (err: any) {
-      const detail = err?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Validation failed");
-    } finally {
-      setValidating(false);
-      setValidateProgress(null);
-    }
   };
+
+  const resultColumns: GridColDef[] = [
+    { field: "row", headerName: "Row", width: 90 },
+    { field: "status", headerName: "Status", width: 160 },
+    { field: "lead_id", headerName: "Lead ID", width: 140 },
+    { field: "score_value", headerName: "Score", width: 110 },
+    { field: "score_category", headerName: "Tier", width: 120 },
+    { field: "message", headerName: "Message", flex: 1, minWidth: 280 },
+  ];
 
   const onImport = async () => {
     if (!file) return;
@@ -159,7 +86,6 @@ export default function LeadImport() {
           if (!total) return;
           const pct = Math.min(100, Math.round((e.loaded / total) * 100));
           setImportProgress(pct);
-          // Only transition to 'scoring' when upload reaches 100%
           if (pct >= 100) setImportPhase("scoring");
         },
       });
@@ -206,15 +132,10 @@ export default function LeadImport() {
         .concat(
           (result.results ?? [])
             .filter((r) => r.status === "failed")
-            .map((r) => `${r.row},row_failed,,"${(r.message ?? "Failed").replace(/"/g, '""')}"`),
-        )
-        .concat(
-          (result.issues ?? []).map((i) => {
-            const row = i.row ?? "";
-            const field = i.field ?? "";
-            const msg = (i.message ?? "").replace(/"/g, '""');
-            return `${row},issue_${i.severity},${field},"${msg}"`;
-          }),
+            .map(
+              (r) =>
+                `${r.row},row_failed,,"${(r.message ?? "Failed").replace(/"/g, '""')}"`
+            )
         )
         .join("\n");
 
@@ -228,11 +149,17 @@ export default function LeadImport() {
           Import Leads (CSV/XLSX)
         </Typography>
         <Typography color="text.secondary">
-          Upload a CSV or XLSX file to import leads. They will be scored by our AI model and saved as <b>Unassigned</b>. Use the Auto-Assignment Engine from the Leads Center to route them.
+          Upload a CSV or XLSX file to import leads. They will be scored by our AI model and saved as{" "}
+          <b>Unassigned</b>. Use the Auto-Assignment Engine from the Leads Center to route them.
         </Typography>
       </Stack>
 
       {error ? <Alert severity="error">{error}</Alert> : null}
+      {result ? (
+        <Alert severity="success">
+          Import complete. Please refresh the page to see the new leads.
+        </Alert>
+      ) : null}
 
       <Card sx={{ borderRadius: 1 }}>
         <CardContent sx={{ p: 3 }}>
@@ -259,16 +186,13 @@ export default function LeadImport() {
                 {file ? file.name : "No file selected"}
               </Typography>
 
-              <Button variant="outlined" disabled={!file || validating} onClick={onValidate}>
-                {validating ? "Validating..." : "Validate"}
-              </Button>
               <Button
                 variant="contained"
                 color="primary"
-                disabled={!file || !validation || hasBlockingErrors || importing}
+                disabled={!file || importing}
                 onClick={onImport}
               >
-                {importing ? "Importing..." : "Import now"}
+                {importing ? "Importing..." : "Import"}
               </Button>
             </Stack>
 
@@ -287,32 +211,48 @@ export default function LeadImport() {
               </FormControl>
             </Stack>
 
-            {validating && validateProgress != null ? (
-              <Stack spacing={0.5}>
-                <LinearProgress variant="determinate" value={validateProgress} />
-                <Typography variant="caption" color="text.secondary">
-                  Uploading for validation: {validateProgress}%
-                </Typography>
-              </Stack>
-            ) : null}
-
             {importing ? (
               <Stack spacing={1.5} sx={{ py: 1 }}>
-                <Stepper activeStep={importPhase === "uploading" ? 0 : importPhase === "scoring" ? 1 : importPhase === "saving" ? 2 : 3} alternativeLabel>
-                  <Step><StepLabel>Uploading CSV</StepLabel></Step>
-                  <Step><StepLabel>Running AI Scoring</StepLabel></Step>
-                  <Step><StepLabel>Validating & Saving</StepLabel></Step>
-                  <Step><StepLabel>Complete</StepLabel></Step>
+                <Stepper
+                  activeStep={
+                    importPhase === "uploading"
+                      ? 0
+                      : importPhase === "scoring"
+                      ? 1
+                      : importPhase === "saving"
+                      ? 2
+                      : 3
+                  }
+                  alternativeLabel
+                >
+                  <Step>
+                    <StepLabel>Uploading CSV</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Running AI Scoring</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Validating & Saving</StepLabel>
+                  </Step>
+                  <Step>
+                    <StepLabel>Complete</StepLabel>
+                  </Step>
                 </Stepper>
                 {importProgress != null ? (
-                  <LinearProgress variant="determinate" value={importProgress} sx={{ height: 8, borderRadius: 1 }} />
+                  <LinearProgress
+                    variant="determinate"
+                    value={importProgress}
+                    sx={{ height: 8, borderRadius: 1 }}
+                  />
                 ) : (
                   <LinearProgress sx={{ height: 8, borderRadius: 1 }} />
                 )}
                 <Typography variant="caption" color="text.secondary" textAlign="center">
-                  {importPhase === "uploading" && `Uploading CSV... ${importProgress ?? 0}%`}
+                  {importPhase === "uploading" &&
+                    `Uploading CSV... ${importProgress ?? 0}%`}
                   {importPhase === "scoring" && "Running AI Lead Scoring..."}
                   {importPhase === "saving" && "Validating & Saving leads to database..."}
+                  {importPhase === "done" && "Complete! Displaying results..."}
                 </Typography>
               </Stack>
             ) : null}
@@ -342,83 +282,6 @@ export default function LeadImport() {
         </CardContent>
       </Card>
 
-      {validation ? (
-        <Card sx={{ borderRadius: 1 }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack spacing={1}>
-              <Typography sx={{ fontWeight: 900 }}>Validation</Typography>
-              <Typography color="text.secondary" variant="body2">
-                Rows detected: <b>{validation.row_count}</b>
-              </Typography>
-              {validation.missing_required_columns.length ? (
-                <Alert severity="error">
-                  Missing required columns: {validation.missing_required_columns.join(", ")}
-                </Alert>
-              ) : null}
-              {validation.extra_columns.length ? (
-                <Alert severity="info">Extra columns will be ignored: {validation.extra_columns.join(", ")}</Alert>
-              ) : null}
-            </Stack>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Stack spacing={1.25}>
-              <Typography sx={{ fontWeight: 900 }}>Preview</Typography>
-              <Box sx={{ height: 360, width: "100%" }}>
-                <DataGrid
-                  rows={previewGridRows}
-                  columns={previewColumns}
-                  hideFooter
-                  rowSelectionModel={{
-                    type: "include",
-                    ids: new Set(previewSelectedRow === null ? [] : [previewSelectedRow]),
-                  }}
-                  onRowSelectionModelChange={(m) => {
-                    const first = Array.from(m.ids)[0];
-                    setPreviewSelectedRow(typeof first === "number" ? first : null);
-                  }}
-                  sx={{
-                    border: "1px solid rgba(15, 23, 42, 0.08)",
-                    borderRadius: 1,
-                    "& .MuiDataGrid-columnHeaders": {
-                      bgcolor: "rgba(15, 23, 42, 0.02)",
-                      borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
-                    },
-                  }}
-                />
-              </Box>
-            </Stack>
-
-            <Divider sx={{ my: 2 }} />
-
-            <Stack spacing={1.25}>
-              <Typography sx={{ fontWeight: 900 }}>Issues</Typography>
-              <Box sx={{ height: 320, width: "100%" }}>
-                <DataGrid
-                  rows={issueRows}
-                  columns={issueColumns}
-                  hideFooter
-                  onRowClick={(params) => {
-                    const rowNumber = (params.row as any).row as number | null | undefined;
-                    if (!rowNumber) return;
-                    const idx = previewGridRows.findIndex((r: any) => r.__row__ === rowNumber);
-                    if (idx >= 0) setPreviewSelectedRow(idx);
-                  }}
-                  sx={{
-                    border: "1px solid rgba(15, 23, 42, 0.08)",
-                    borderRadius: 1,
-                    "& .MuiDataGrid-columnHeaders": {
-                      bgcolor: "rgba(15, 23, 42, 0.02)",
-                      borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
-                    },
-                  }}
-                />
-              </Box>
-            </Stack>
-          </CardContent>
-        </Card>
-      ) : null}
-
       {result ? (
         <Card sx={{ borderRadius: 1, border: "2px solid", borderColor: "success.main" }}>
           <CardContent sx={{ p: 3 }}>
@@ -430,8 +293,10 @@ export default function LeadImport() {
                     Import Successful! — {result.imported_count + result.updated_count} Leads Saved
                   </Typography>
                   <Typography color="text.secondary">
-                    Leads successfully imported and scored! They are now available in the Leads Center as <Chip label="Unassigned" size="small" color="warning" sx={{ fontWeight: 700 }} />.
-                    Use the <b>Run Auto-Assignment</b> button from the Leads Center to route them to your sales team.
+                    Leads successfully imported and scored! They are now available in the Leads Center as{" "}
+                    <Chip label="Unassigned" size="small" color="warning" sx={{ fontWeight: 700 }} />. Use
+                    the <b>Run Auto-Assignment</b> button from the Leads Center to route them to your sales
+                    team.
                   </Typography>
                 </Stack>
               </Stack>
@@ -440,8 +305,9 @@ export default function LeadImport() {
 
               <Typography sx={{ fontWeight: 900 }}>Import results</Typography>
               <Typography color="text.secondary" variant="body2">
-                Imported: <b>{result.imported_count}</b> • Updated duplicates: <b>{result.updated_count}</b> • Skipped
-                duplicates: <b>{result.skipped_duplicate_count}</b> • Failed: <b>{result.failed_count}</b>
+                Imported: <b>{result.imported_count}</b> • Updated duplicates: <b>{result.updated_count}</b>{" "}
+                • Skipped duplicates: <b>{result.skipped_duplicate_count}</b> • Failed:{" "}
+                <b>{result.failed_count}</b>
               </Typography>
               {result.batch_id ? (
                 <Typography color="text.secondary" variant="body2">
@@ -456,7 +322,14 @@ export default function LeadImport() {
                 <Button variant="contained" color="secondary" onClick={() => navigate("/app/leads")}>
                   Go to Leads Center
                 </Button>
-                <Button variant="outlined" onClick={() => { setResult(null); setValidation(null); setFile(null); setImportPhase("idle"); }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setResult(null);
+                    setFile(null);
+                    setImportPhase("idle");
+                  }}
+                >
                   Import More Leads
                 </Button>
                 <Button
@@ -470,7 +343,7 @@ export default function LeadImport() {
 
               <Box sx={{ height: 420, width: "100%" }}>
                 <DataGrid
-                  rows={resultRows}
+                  rows={resultRows()}
                   columns={resultColumns}
                   hideFooter
                   disableRowSelectionOnClick

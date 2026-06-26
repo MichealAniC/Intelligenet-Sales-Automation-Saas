@@ -1,5 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ArcElement,
+  BarElement,
+  CategoryScale,
+  Chart as ChartJS,
+  Legend,
+  LinearScale,
+  Tooltip as ChartJSTooltip,
+} from "chart.js";
+import { Bar } from "react-chartjs-2";
+import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Alert,
   Autocomplete,
   Box,
@@ -28,7 +41,8 @@ import {
 } from "@mui/material";
 import { DataGrid, type GridColDef } from "@mui/x-data-grid";
 import SettingsOutlined from "@mui/icons-material/SettingsOutlined";
-import { api } from "@/api/http";
+import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
+import { api, getTeamWorkload } from "@/api/http";
 import type {
   AvailabilityStatus,
   InvitationCreateRequest,
@@ -39,6 +53,8 @@ import type {
   SalesProfile,
   TeamMemberWorkload,
 } from "@/api/types";
+
+ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, ChartJSTooltip, Legend);
 
 const SALES_PROFILES: SalesProfile[] = [
   "Junior Sales Rep",
@@ -80,8 +96,8 @@ export default function SalesTeam() {
   const loadWorkload = useCallback(async () => {
     setWorkloadLoading(true);
     try {
-      const res = await api.get<TeamMemberWorkload[]>("/users/team-workload");
-      setWorkload(res.data);
+      const res = await getTeamWorkload();
+      setWorkload(res.team_workload);
     } catch {
       // silently fail
     } finally {
@@ -174,6 +190,47 @@ export default function SalesTeam() {
     [workload],
   );
 
+  const teamWorkloadChartData = useMemo(() => {
+    if (!workload.length) return null;
+    return {
+      labels: workload.map((m) => m.full_name),
+      datasets: [
+        {
+          label: "Active Leads",
+          data: workload.map((m) => m.active_leads),
+          backgroundColor: "rgba(245, 158, 11, 0.8)",
+          borderRadius: 2,
+        },
+        {
+          label: "Capacity",
+          data: workload.map((m) => m.capacity),
+          backgroundColor: "rgba(15, 23, 42, 0.15)",
+          borderRadius: 2,
+        },
+      ],
+    };
+  }, [workload]);
+
+  const teamUtilizationChartData = useMemo(() => {
+    if (!workload.length) return null;
+    return {
+      labels: workload.map((m) => m.full_name),
+      datasets: [
+        {
+          label: "Utilization (%)",
+          data: workload.map((m) => Math.round(m.utilization * 100)),
+          backgroundColor: workload.map((m) => {
+            const util = Math.round(m.utilization * 100);
+            if (util >= 90) return "rgba(239, 68, 68, 0.8)";
+            if (util >= 70) return "rgba(245, 158, 11, 0.8)";
+            return "rgba(34, 197, 94, 0.8)";
+          }),
+          borderRadius: 2,
+        },
+      ],
+    };
+  }, [workload]);
+
   const rosterColumns = useMemo<GridColDef[]>(
     () => [
       { field: "full_name", headerName: "Name", minWidth: 160, flex: 1 },
@@ -248,6 +305,43 @@ export default function SalesTeam() {
     [],
   );
 
+  const invitationRows = useMemo(
+    () => invites.map((inv) => ({ id: inv.id, ...inv })),
+    [invites],
+  );
+
+  const invitationColumns = useMemo<GridColDef[]>(
+    () => [
+      { field: "email", headerName: "Email", minWidth: 200, flex: 1 },
+      {
+        field: "expires_at",
+        headerName: "Expires At",
+        width: 200,
+        renderCell: (p: any) => new Date(p.value).toLocaleString(),
+      },
+      {
+        field: "accepted_at",
+        headerName: "Accepted At",
+        width: 200,
+        renderCell: (p: any) =>
+          p.value ? new Date(p.value).toLocaleString() : "—",
+      },
+      {
+        field: "status",
+        headerName: "Status",
+        width: 120,
+        renderCell: (p: any) => (
+          <Chip
+            label={p.row.accepted_at ? "Used" : "Pending"}
+            color={p.row.accepted_at ? "success" : "warning"}
+            size="small"
+          />
+        ),
+      },
+    ],
+    [],
+  );
+
   return (
     <Stack spacing={2.5}>
       <Stack spacing={0.5}>
@@ -262,6 +356,43 @@ export default function SalesTeam() {
       {error ? <Alert severity="error" onClose={() => setError(null)}>{error}</Alert> : null}
       {success ? <Alert severity="success" onClose={() => setSuccess(null)}>{success}</Alert> : null}
 
+      {/* Team Workload Visualization */}
+      <Box
+        sx={{
+          display: "grid",
+          gridTemplateColumns: { xs: "1fr", lg: "1fr 1fr" },
+          gap: 2,
+        }}
+      >
+        <Card sx={{ borderRadius: 1 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack spacing={0.25}>
+                <Typography sx={{ fontWeight: 900 }}>Team Active Leads vs Capacity</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Current workload per team member
+                </Typography>
+              </Stack>
+            </Stack>
+            {teamWorkloadChartData && <Bar data={teamWorkloadChartData} />}
+          </CardContent>
+        </Card>
+
+        <Card sx={{ borderRadius: 1 }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
+              <Stack spacing={0.25}>
+                <Typography sx={{ fontWeight: 900 }}>Team Utilization</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Utilization percentage per team member
+                </Typography>
+              </Stack>
+            </Stack>
+            {teamUtilizationChartData && <Bar data={teamUtilizationChartData} />}
+          </CardContent>
+        </Card>
+      </Box>
+
       {/* Sales Roster */}
       <Card sx={{ borderRadius: 1 }}>
         <CardContent sx={{ p: 3 }}>
@@ -272,6 +403,7 @@ export default function SalesTeam() {
               columns={rosterColumns}
               loading={workloadLoading}
               disableRowSelectionOnClick
+              getRowId={(row) => row.user_id}
               pageSizeOptions={[10, 25, 50]}
               sx={{
                 border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -341,45 +473,31 @@ export default function SalesTeam() {
         </CardContent>
       </Card>
 
-      <Card variant="outlined">
-        <CardContent>
-          <Typography variant="h6" sx={{ fontWeight: 800, mb: 1 }}>
+      {/* Recent Invitations Accordion */}
+      <Accordion defaultExpanded={false}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
             Recent invitations
           </Typography>
-          <Stack spacing={1}>
-            {invites.length === 0 ? (
-              <Typography color="text.secondary">No invitations yet.</Typography>
-            ) : (
-              invites.map((inv) => (
-                <Box
-                  key={inv.id}
-                  sx={{
-                    display: "flex",
-                    gap: 2,
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    p: 1.25,
-                    borderRadius: 1,
-                    border: "1px solid rgba(15, 23, 42, 0.08)",
-                    bgcolor: "background.paper",
-                  }}
-                >
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography sx={{ fontWeight: 750 }}>{inv.email}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Expires: {new Date(inv.expires_at).toLocaleString()}
-                      {inv.accepted_at ? ` • Accepted: ${new Date(inv.accepted_at).toLocaleString()}` : ""}
-                    </Typography>
-                  </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 800 }}>
-                    {inv.accepted_at ? "Used" : "Pending"}
-                  </Typography>
-                </Box>
-              ))
-            )}
-          </Stack>
-        </CardContent>
-      </Card>
+        </AccordionSummary>
+        <AccordionDetails>
+          <Box sx={{ height: 400, width: "100%", overflowX: "auto" }}>
+            <DataGrid
+              rows={invitationRows}
+              columns={invitationColumns}
+              pageSizeOptions={[10, 25, 50]}
+              sx={{
+                border: "1px solid rgba(15, 23, 42, 0.08)",
+                borderRadius: 1,
+                "& .MuiDataGrid-columnHeaders": {
+                  bgcolor: "rgba(15, 23, 42, 0.02)",
+                  borderBottom: "1px solid rgba(15, 23, 42, 0.08)",
+                },
+              }}
+            />
+          </Box>
+        </AccordionDetails>
+      </Accordion>
 
       {/* Configure Profile Modal */}
       <Dialog open={!!configMember} onClose={closeConfig} maxWidth="sm" fullWidth>

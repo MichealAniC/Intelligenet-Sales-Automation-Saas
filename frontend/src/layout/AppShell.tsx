@@ -41,6 +41,7 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/auth";
+import SalesPilotLogo from "@/assets/SalesPilot Logo.png";
 
 const drawerWidth = 272;
 
@@ -98,20 +99,35 @@ export default function AppShell() {
 
   const drawerContent = (
     <Stack sx={{ height: "100%" }}>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: 2, py: 1.5 }}>
-        <Stack spacing={0} sx={{ cursor: "pointer" }} onClick={() => navigate("/app/dashboard")}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>
-            SalesPilot AI
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Intelligent Sales Control Center
-          </Typography>
-        </Stack>
-        <Tooltip title={collapsed ? "Expand" : "Collapse"}>
-          <IconButton size="small" onClick={() => setCollapsed((v) => !v)}>
-            <ChevronLeft sx={{ transform: collapsed ? "rotate(180deg)" : "none" }} />
-          </IconButton>
-        </Tooltip>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ px: collapsed ? 1 : 2, py: 1.5 }}>
+        {!collapsed && (
+          <Stack spacing={0} sx={{ cursor: "pointer", minWidth: 0, flex: 1 }} onClick={() => navigate("/app/dashboard")}>
+            <img
+              src={SalesPilotLogo}
+              alt="SalesPilot AI"
+              style={{
+                maxWidth: "100%",
+                height: "auto",
+                objectFit: "contain",
+              }}
+            />
+          </Stack>
+        )}
+        {collapsed ? (
+          <Stack direction="row" justifyContent="center" sx={{ width: "100%" }}>
+            <Tooltip title="Expand">
+              <IconButton size="small" onClick={() => setCollapsed((v) => !v)}>
+                <MenuIcon />
+              </IconButton>
+            </Tooltip>
+          </Stack>
+        ) : (
+          <Tooltip title="Collapse">
+            <IconButton size="small" onClick={() => setCollapsed((v) => !v)}>
+              <ChevronLeft />
+            </IconButton>
+          </Tooltip>
+        )}
       </Stack>
       <Divider />
       <Box sx={{ px: 1, pt: 1 }}>
