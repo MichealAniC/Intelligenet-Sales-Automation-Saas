@@ -13,6 +13,8 @@ from app.models.enums import (
     TaskPriority,
     TaskStatus,
     UserRole,
+    ActivityType,
+    ActivityOutcome,
 )
 from app.models.lead import Lead
 from app.models.lead_assignment import LeadAssignment
@@ -26,6 +28,7 @@ from app.models.invitation import Invitation
 from app.models.organization import Organization
 from app.models.user import User
 from app.models.task import Task
+from app.models.activity import Activity
 
 __all__ = [
     "AssignmentStatus",
@@ -54,4 +57,7 @@ __all__ = [
     "TaskStatus",
     "User",
     "UserRole",
+    "Activity",
+    "ActivityType",
+    "ActivityOutcome",
 ]

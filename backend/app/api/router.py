@@ -8,6 +8,8 @@ from app.api.routes.dashboard import router as dashboard_router
 from app.api.routes.prediction import router as prediction_router
 from app.api.routes.users import router as users_router
 from app.api.routes.tasks import router as tasks_router
+from app.api.routes.activities import router as activities_router
+from app.api.routes.workload import router as workload_router
 from app.core.config import settings
 
 api_router = APIRouter(prefix=settings.API_V1_STR)
@@ -19,3 +21,5 @@ api_router.include_router(leads_router, tags=["leads"])
 api_router.include_router(dashboard_router, tags=["dashboard"])
 api_router.include_router(invitations_router, tags=["invitations"])
 api_router.include_router(tasks_router, tags=["tasks"])
+api_router.include_router(activities_router, tags=["activities"])
+api_router.include_router(workload_router, tags=["workload"])

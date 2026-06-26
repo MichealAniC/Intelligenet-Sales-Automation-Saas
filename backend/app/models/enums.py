@@ -102,3 +102,25 @@ class TaskStatus(str, Enum):
     PENDING = "Pending"
     COMPLETED = "Completed"
     CANCELED = "Canceled"
+
+
+class ActivityType(str, Enum):
+    CALL = "Call"
+    EMAIL = "Email"
+    MEETING = "Meeting"
+    NOTE = "Note"
+
+
+class ActivityOutcome(str, Enum):
+    LEFT_MESSAGE = "Left Message"
+    CONNECTED = "Connected"
+    NO_ANSWER = "No Answer"
+    COMPLETED = "Completed"
+    SCHEDULED = "Scheduled"
+
+
+class LeadLifecycleState(str, Enum):
+    ACTIVE = "ACTIVE"
+    NURTURING = "NURTURING"
+    CLOSED_WON = "CLOSED_WON"
+    CLOSED_LOST = "CLOSED_LOST"

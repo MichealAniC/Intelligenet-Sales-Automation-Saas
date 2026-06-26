@@ -112,24 +112,46 @@ def _fetch_eligible_candidates(
 
 
 # ---------------------------------------------------------------------------
-# Step 6: Get active assignment count for a user
+# Step 6: Get active lead count (lifecycle_state=ACTIVE) for a user
 # ---------------------------------------------------------------------------
+from app.models.lead import Lead
+from app.models.enums import LeadLifecycleState
+
+
 def _get_active_count(db: Session, *, user_id, organization_id) -> int:
-    return (
-        db.scalar(
-            select(func.count())
-            .select_from(LeadAssignment)
-            .where(
-                LeadAssignment.assigned_to == user_id,
-                LeadAssignment.organization_id == organization_id,
-                LeadAssignment.assignment_status.in_([
-                    AssignmentStatus.ASSIGNED,
-                    AssignmentStatus.IN_PROGRESS,
-                ]),
-            )
+    # Get latest assignment per lead
+    assignment_max = (
+        select(
+            LeadAssignment.lead_id,
+            func.max(LeadAssignment.assignment_date).label("max_assignment_date"),
         )
-        or 0
+        .where(
+            LeadAssignment.organization_id == organization_id,
+            LeadAssignment.assigned_to == user_id,
+        )
+        .group_by(LeadAssignment.lead_id)
+        .subquery()
     )
+    latest_assignment = aliased(LeadAssignment)
+
+    stmt = (
+        select(func.count())
+        .select_from(Lead)
+        .join(assignment_max, assignment_max.c.lead_id == Lead.lead_id)
+        .join(
+            latest_assignment,
+            and_(
+                latest_assignment.lead_id == assignment_max.c.lead_id,
+                latest_assignment.assignment_date == assignment_max.c.max_assignment_date,
+            ),
+        )
+        .where(
+            Lead.organization_id == organization_id,
+            Lead.is_deleted.is_(False),
+            Lead.lifecycle_state == LeadLifecycleState.ACTIVE,
+        )
+    )
+    return db.scalar(stmt) or 0
 
 
 # ---------------------------------------------------------------------------

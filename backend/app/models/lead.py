@@ -29,6 +29,7 @@ from app.models.enums import (
     LeadStatus,
     PurchaseTimeline,
     SeniorityLevel,
+    LeadLifecycleState,
 )
 from app.models.utils import enum_values
 
@@ -104,6 +105,15 @@ class Lead(Base):
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
     )
+    lifecycle_state: Mapped[LeadLifecycleState] = mapped_column(
+        Enum(LeadLifecycleState, name="lead_lifecycle_state", values_callable=enum_values),
+        nullable=False,
+        default=LeadLifecycleState.ACTIVE,
+    )
+    next_followup_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+    )
     converted: Mapped[bool] = mapped_column(Boolean)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
@@ -118,4 +128,5 @@ class Lead(Base):
     notes = relationship("LeadNote", back_populates="lead", cascade="all, delete-orphan")
     tag_links = relationship("LeadTagLink", back_populates="lead", cascade="all, delete-orphan")
     tasks = relationship("Task", back_populates="lead", cascade="all, delete-orphan")
+    activities = relationship("Activity", back_populates="lead", cascade="all, delete-orphan")
     import_batch = relationship("LeadImportBatch", back_populates="leads")

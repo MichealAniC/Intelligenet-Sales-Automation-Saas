@@ -13,6 +13,7 @@ from app.models.enums import (
     LeadStatus,
     PurchaseTimeline,
     SeniorityLevel,
+    LeadLifecycleState,
 )
 
 try:
@@ -50,6 +51,8 @@ class LeadCreate(BaseModel):
     estimated_budget: EstimatedBudget
     purchase_timeline: PurchaseTimeline
     lead_status: LeadStatus | None = None
+    lifecycle_state: LeadLifecycleState = LeadLifecycleState.ACTIVE
+    next_followup_date: datetime | None = None
 
     if model_validator is not None:
 
@@ -72,6 +75,40 @@ class LeadCreate(BaseModel):
             self.first_name = first_name.strip() or "Unknown"
             self.last_name = last_name.strip() or "Unknown"
             return self
+
+
+class LeadUpdate(BaseModel):
+    full_name: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
+    email: EmailStr | None = None
+    phone_number: str | None = None
+    job_title: str | None = None
+    seniority_level: SeniorityLevel | None = None
+    department: str | None = None
+    country: str | None = None
+    company_name: str | None = None
+    company_industry: str | None = None
+    company_size_category: CompanySizeCategory | None = None
+    company_size_range: str | None = None
+    estimated_annual_revenue: Decimal | None = None
+    lead_source: LeadSource | None = None
+    date_captured: date | None = None
+    website_visits: int | None = None
+    pages_viewed: int | None = None
+    average_time_on_site: float | None = None
+    email_open_rate: float | None = None
+    email_click_rate: float | None = None
+    webinar_attendance: bool | None = None
+    last_interaction_days: int | None = None
+    meeting_scheduled: bool | None = None
+    follow_up_status: FollowUpStatus | None = None
+    estimated_budget: EstimatedBudget | None = None
+    purchase_timeline: PurchaseTimeline | None = None
+    lead_status: LeadStatus | None = None
+    lifecycle_state: LeadLifecycleState | None = None
+    next_followup_date: datetime | None = None
+    converted: bool | None = None
 
 
 class LeadPublic(BaseModel):
@@ -106,5 +143,7 @@ class LeadPublic(BaseModel):
     estimated_budget: EstimatedBudget
     purchase_timeline: PurchaseTimeline
     lead_status: LeadStatus
+    lifecycle_state: LeadLifecycleState
+    next_followup_date: datetime | None
     converted: bool
     created_at: datetime

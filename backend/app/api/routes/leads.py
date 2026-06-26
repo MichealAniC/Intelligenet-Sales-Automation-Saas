@@ -48,9 +48,10 @@ from app.models.enums import (
     PurchaseTimeline,
     SeniorityLevel,
     UserRole,
+    LeadLifecycleState,
 )
 from app.models.user import User
-from app.schemas.lead import LeadCreate, LeadPublic
+from app.schemas.lead import LeadCreate, LeadPublic, LeadUpdate
 from app.schemas.lead_import import (
     LeadImportIssue,
     LeadImportResponse,
@@ -1126,6 +1127,53 @@ def add_lead_note(
     return LeadNotePublic.model_validate(note)
 
 
+@router.patch("/{lead_id}", response_model=LeadPublic)
+def update_lead(
+    lead_id: str,
+    payload: LeadUpdate,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> LeadPublic:
+    """Update lead details. Accessible to both Admin and assigned Sales members."""
+    if user.role not in {UserRole.ADMIN, UserRole.SALES}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    lead = get_lead(db, organization_id=user.organization_id, lead_id=lead_id)
+    if not lead or lead.is_deleted:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lead not found")
+
+    if user.role == UserRole.SALES:
+        if not is_lead_assigned_to(db, organization_id=user.organization_id, lead_id=lead_id, assigned_to=user.id):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    # Check if lifecycle_state is being changed
+    old_lifecycle_state = lead.lifecycle_state
+    update_data = payload.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(lead, key, value)
+    
+    db.commit()
+    db.refresh(lead)
+
+    # If lifecycle state changed, create an activity
+    if old_lifecycle_state != lead.lifecycle_state:
+        from app.models.activity import Activity
+        from app.models.enums import ActivityType, ActivityOutcome
+        activity = Activity(
+            organization_id=user.organization_id,
+            lead_id=lead_id,
+            user_id=user.id,
+            activity_type=ActivityType.NOTE,
+            outcome=ActivityOutcome.COMPLETED,
+            notes=f"Lead moved from {old_lifecycle_state.value} to {lead.lifecycle_state.value}",
+        )
+        db.add(activity)
+        db.commit()
+        db.refresh(activity)
+
+    return LeadPublic.model_validate(lead)
+
+
 @router.patch("/{lead_id}/status", response_model=LeadPublic)
 def update_lead_status(
     lead_id: str,
@@ -1338,6 +1386,48 @@ def restore_lead(
         event_type="lead_restored",
     )
     return LeadPublic.model_validate(lead)
+
+
+@router.post("/system/wake-nurturing", response_model=list[LeadPublic])
+def wake_nurturing_leads(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+) -> list[LeadPublic]:
+    """Wake up nurturing leads that are due (next_followup_date <= now)."""
+    if user.role != UserRole.ADMIN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+    now = datetime.now(tz=timezone.utc)
+    stmt = select(Lead).where(
+        Lead.organization_id == user.organization_id,
+        Lead.is_deleted.is_(False),
+        Lead.lifecycle_state == LeadLifecycleState.NURTURING,
+        Lead.next_followup_date <= now,
+    )
+    leads = db.scalars(stmt).all()
+
+    for lead in leads:
+        old_state = lead.lifecycle_state
+        lead.lifecycle_state = LeadLifecycleState.ACTIVE
+        lead.next_followup_date = None
+        db.add(lead)
+
+        # Create activity log
+        from app.models.activity import Activity
+        from app.models.enums import ActivityType, ActivityOutcome
+        activity = Activity(
+            organization_id=user.organization_id,
+            lead_id=lead.lead_id,
+            user_id=user.id,
+            activity_type=ActivityType.NOTE,
+            outcome=ActivityOutcome.COMPLETED,
+            notes="Lead woken up from nurturing state",
+        )
+        db.add(activity)
+
+    db.commit()
+
+    return [LeadPublic.model_validate(lead) for lead in leads]
 
 
 @router.post("/{lead_id}/archive", response_model=LeadPublic)
