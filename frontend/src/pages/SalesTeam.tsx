@@ -163,6 +163,11 @@ export default function SalesTeam() {
 
   const saveConfig = async () => {
     if (!configMember) return;
+    if (!configMember.user_id) {
+      console.error("Missing user_id for sales team member");
+      setError("Failed to save profile: missing user identifier");
+      return;
+    }
     setCfgSaving(true);
     try {
       const payload: RoutingProfileUpdate = {
@@ -173,7 +178,7 @@ export default function SalesTeam() {
         auto_assignment_enabled: cfgAutoAssign,
         profile_status: cfgProfileStatus,
       };
-      await api.patch(`/users/${configMember.id}/routing-profile`, payload);
+      await api.patch(`/users/${configMember.user_id}/routing-profile`, payload);
       setSuccess(`${configMember.full_name}'s profile updated`);
       closeConfig();
       await loadWorkload();

@@ -20,7 +20,7 @@ import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.models.enums import (
     AssignmentStatus,
@@ -253,14 +253,20 @@ def assign_lead(
             assigned=False, reason="No eligible sales members available"
         )
 
-    # Step 2b – Capacity circuit breaker: hard-disqualify at-capacity reps
-    capacity_eligible: list[User] = []
+    # Step 2b – Eligibility: Only reps with active < cap are eligible
+    capacity_eligible = []
     for c in candidates:
         cap = _get_capacity(c.performance_rating or 0)
         active = _get_active_count(
             db, user_id=c.id, organization_id=organization_id
         )
-        if active < cap:  # strict: must have room
+        utilization = active / cap if cap > 0 else 1.0
+        
+        if active < cap:
+            # Target: Calculate exact slots needed to hit 100% capacity
+            c.available_slots = cap - active
+            c.active = active  # Store for sorting
+            c.cap = cap        # Store for sorting
             capacity_eligible.append(c)
 
     if not capacity_eligible:
@@ -268,6 +274,9 @@ def assign_lead(
             assigned=False,
             reason="All candidates at full capacity — lead remains Unassigned",
         )
+
+    # Sort eligible reps by utilization (emptiest plates first)
+    capacity_eligible.sort(key=lambda x: (x.active / x.cap) if x.cap > 0 else 1.0)
 
     # Steps 3-6 – Score every candidate
     scored = [
@@ -330,4 +339,110 @@ def assign_lead(
         assignee=best.user,
         score=best.total,
         reason="Assigned via 7-step waterfall routing",
+    )
+
+
+@dataclass
+class BulkAssignmentResult:
+    total_unassigned: int
+    assigned_count: int
+    failed_count: int
+    assignments: list[dict]
+
+
+def bulk_assign_leads(
+    db: Session,
+    *,
+    unassigned_leads: list,
+    organization_id,
+    assigned_by=None,
+) -> BulkAssignmentResult:
+    """Bulk assign unassigned leads using Continuous Replenishment model."""
+    total = len(unassigned_leads)
+    assigned_count = 0
+    failed_count = 0
+    assignments: list[dict] = []
+
+    # Step 1: Fetch eligible candidates and calculate available slots
+    candidates = _fetch_eligible_candidates(db, organization_id=organization_id)
+    capacity_eligible = []
+    for c in candidates:
+        cap = _get_capacity(c.performance_rating or 0)
+        active = _get_active_count(db, user_id=c.id, organization_id=organization_id)
+        if active < cap:
+            c.available_slots = cap - active
+            c.active = active
+            c.cap = cap
+            capacity_eligible.append(c)
+
+    if not capacity_eligible:
+        return BulkAssignmentResult(
+            total_unassigned=total,
+            assigned_count=0,
+            failed_count=total,
+            assignments=[{"lead_id": lead.lead_id, "assigned_to": None, "reason": "No eligible reps available"} for lead in unassigned_leads],
+        )
+
+    # Step 2: Load balancing: Sort eligible reps by utilization (emptiest first)
+    capacity_eligible.sort(key=lambda x: (x.active / x.cap) if x.cap > 0 else 1.0)
+
+    # Step 3: Continuous Replenishment: Assign leads to sorted reps
+    for lead in unassigned_leads:
+        assigned = False
+        # Check if any reps still have available slots
+        has_available_slots = any(getattr(rep, "available_slots", 0) > 0 for rep in capacity_eligible)
+        if not has_available_slots:
+            break
+
+        for rep in capacity_eligible:
+            if getattr(rep, "available_slots", 0) > 0:
+                try:
+                    result = assign_lead(
+                        db,
+                        lead=lead,
+                        organization_id=organization_id,
+                        assigned_by=assigned_by,
+                    )
+                    if result.assigned:
+                        # Update capacity tracking for this rep
+                        rep.available_slots -= 1
+                        rep.active += 1
+                        # Re-sort reps after each assignment to keep emptiest first
+                        capacity_eligible.sort(key=lambda x: (x.active / x.cap) if x.cap > 0 else 1.0)
+                        assigned_count += 1
+                        assignments.append({
+                            "lead_id": lead.lead_id,
+                            "assigned_to": str(result.assignee.id),
+                            "assigned_to_name": result.assignee.full_name,
+                            "routing_score": round(result.score, 2),
+                        })
+                        assigned = True
+                        break
+                except Exception as exc:
+                    failed_count += 1
+                    assignments.append({
+                        "lead_id": lead.lead_id,
+                        "assigned_to": None,
+                        "reason": f"Error: {exc}",
+                    })
+                    assigned = True
+                    break
+
+        if not assigned:
+            failed_count += 1
+            assignments.append({
+                "lead_id": lead.lead_id,
+                "assigned_to": None,
+                "reason": "No eligible rep with available capacity",
+            })
+
+    # Any remaining unassigned leads (after all reps hit 100% capacity) go to failed count
+    remaining = total - len(assignments)
+    failed_count += remaining
+
+    return BulkAssignmentResult(
+        total_unassigned=total,
+        assigned_count=assigned_count,
+        failed_count=failed_count,
+        assignments=assignments,
     )

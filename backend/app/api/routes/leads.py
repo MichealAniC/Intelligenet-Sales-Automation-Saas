@@ -1648,45 +1648,18 @@ def trigger_auto_assignment(
         ).all()
     )
 
-    total = len(unassigned_leads)
-    assigned_count = 0
-    failed_count = 0
-    assignments: list[dict] = []
-
-    for lead in unassigned_leads:
-        try:
-            result = route_assign_lead(
-                db,
-                lead=lead,
-                organization_id=user.organization_id,
-                assigned_by=user.id,
-            )
-            if result.assigned:
-                assigned_count += 1
-                assignments.append({
-                    "lead_id": lead.lead_id,
-                    "assigned_to": str(result.assignee.id),
-                    "assigned_to_name": result.assignee.full_name,
-                    "routing_score": round(result.score, 2),
-                })
-            else:
-                failed_count += 1
-                assignments.append({
-                    "lead_id": lead.lead_id,
-                    "assigned_to": None,
-                    "reason": result.reason,
-                })
-        except Exception as exc:
-            failed_count += 1
-            assignments.append({
-                "lead_id": lead.lead_id,
-                "assigned_to": None,
-                "reason": f"Error: {exc}",
-            })
+    # Use new bulk assignment function with Continuous Replenishment model
+    from app.services.assignment_engine import bulk_assign_leads
+    result = bulk_assign_leads(
+        db,
+        unassigned_leads=unassigned_leads,
+        organization_id=user.organization_id,
+        assigned_by=user.id,
+    )
 
     return {
-        "total_unassigned": total,
-        "assigned": assigned_count,
-        "failed": failed_count,
-        "assignments": assignments,
+        "total_unassigned": result.total_unassigned,
+        "assigned": result.assigned_count,
+        "failed": result.failed_count,
+        "assignments": result.assignments,
     }
