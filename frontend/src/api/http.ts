@@ -11,6 +11,7 @@ import type {
   AnalyticsOverview,
   LeadStatusUpdate,
   LeadStatus,
+  SearchResults,
 } from "./types";
 
 const isProd = Boolean((import.meta as any).env?.PROD);
@@ -97,4 +98,22 @@ export const getAnalyticsOverview = async (): Promise<AnalyticsOverview> => {
 export const updateLeadStatus = async (leadId: string, leadStatus: LeadStatus): Promise<LeadPublic> => {
   const res = await api.patch(`/leads/${encodeURIComponent(leadId)}/status`, { lead_status: leadStatus });
   return res.data;
+};
+
+export const getSearchResults = async (query: string): Promise<SearchResults> => {
+  const res = await api.get("/search", { params: { q: query } });
+  return res.data;
+};
+
+export const getPinnedLeads = async (): Promise<LeadPublic[]> => {
+  const res = await api.get("/leads/pinned");
+  return res.data;
+};
+
+export const pinLead = async (leadId: string): Promise<void> => {
+  await api.post(`/leads/${encodeURIComponent(leadId)}/pin`);
+};
+
+export const unpinLead = async (leadId: string): Promise<void> => {
+  await api.delete(`/leads/${encodeURIComponent(leadId)}/pin`);
 };

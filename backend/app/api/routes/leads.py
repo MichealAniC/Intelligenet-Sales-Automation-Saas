@@ -51,6 +51,7 @@ from app.models.enums import (
     LeadLifecycleState,
 )
 from app.models.user import User
+from app.models.pinned_lead import PinnedLead
 from app.schemas.lead import LeadCreate, LeadPublic, LeadUpdate
 from app.schemas.lead_import import (
     LeadImportIssue,
@@ -1663,3 +1664,109 @@ def trigger_auto_assignment(
         "failed": result.failed_count,
         "assignments": result.assignments,
     }
+
+
+@router.post("/{lead_id}/pin")
+def pin_lead(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Check if lead exists and is not deleted
+    lead = get_lead(db, organization_id=user.organization_id, lead_id=lead_id)
+    if not lead:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lead not found"
+        )
+    
+    # Check how many pinned leads user already has
+    existing_pinned_count = db.execute(
+        select(func.count(PinnedLead.pinned_lead_id))
+        .where(
+            PinnedLead.user_id == user.id,
+            PinnedLead.organization_id == user.organization_id
+        )
+    ).scalar_one()
+    
+    if existing_pinned_count >= 5:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You can only pin a maximum of 5 leads"
+        )
+    
+    # Check if lead is already pinned by this user
+    existing_pinned = db.execute(
+        select(PinnedLead)
+        .where(
+            PinnedLead.user_id == user.id,
+            PinnedLead.lead_id == lead_id,
+            PinnedLead.organization_id == user.organization_id
+        )
+    ).scalar_one_or_none()
+    
+    if existing_pinned:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lead is already pinned"
+        )
+    
+    # Create the pinned lead record
+    new_pinned = PinnedLead(
+        organization_id=user.organization_id,
+        user_id=user.id,
+        lead_id=lead_id
+    )
+    db.add(new_pinned)
+    db.commit()
+    db.refresh(new_pinned)
+    
+    return {"message": "Lead pinned successfully", "pinned_lead_id": new_pinned.pinned_lead_id}
+
+
+@router.delete("/{lead_id}/pin")
+def unpin_lead(
+    lead_id: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Find and delete the pinned lead
+    pinned = db.execute(
+        select(PinnedLead)
+        .where(
+            PinnedLead.user_id == user.id,
+            PinnedLead.lead_id == lead_id,
+            PinnedLead.organization_id == user.organization_id
+        )
+    ).scalar_one_or_none()
+    
+    if not pinned:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Pinned lead not found"
+        )
+    
+    db.delete(pinned)
+    db.commit()
+    
+    return {"message": "Lead unpinned successfully"}
+
+
+@router.get("/pinned", response_model=list[LeadPublic])
+def get_pinned_leads(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    # Get all pinned leads for this user
+    pinned_leads = db.execute(
+        select(Lead)
+        .join(PinnedLead, PinnedLead.lead_id == Lead.lead_id)
+        .where(
+            PinnedLead.user_id == user.id,
+            PinnedLead.organization_id == user.organization_id,
+            Lead.is_deleted.is_(False)
+        )
+        .order_by(PinnedLead.pinned_at.desc())
+    ).scalars().all()
+    
+    return pinned_leads

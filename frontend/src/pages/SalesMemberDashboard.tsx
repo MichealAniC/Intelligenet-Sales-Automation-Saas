@@ -19,6 +19,10 @@ import {
   Typography,
   LinearProgress,
   Divider,
+  List,
+  ListItemButton,
+  ListItemText,
+  ListItemIcon,
 } from "@mui/material";
 import {
   AssignmentTurnedInOutlined,
@@ -28,11 +32,13 @@ import {
   SentimentDissatisfiedOutlined,
   SentimentSatisfiedOutlined,
   TrendingUpOutlined,
+  PushPin,
 } from "@mui/icons-material";
 import { getMyWorkload, getSalesOverview } from "@/api/http";
-import type { WorkloadDashboard, SalesDashboardOverview, DashboardRecentScore } from "@/api/types";
+import type { WorkloadDashboard, SalesDashboardOverview, DashboardRecentScore, LeadPublic } from "@/api/types";
 import StatCard from "@/components/StatCard";
 import ScoreChip from "@/components/ScoreChip";
+import { useFocus } from "@/contexts/FocusContext";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
@@ -41,6 +47,7 @@ export default function SalesMemberDashboard() {
   const [salesOverview, setSalesOverview] = useState<SalesDashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { pinnedLeads, setFocusedLead } = useFocus();
 
   useEffect(() => {
     let mounted = true;
@@ -198,6 +205,43 @@ export default function SalesMemberDashboard() {
           </CardContent>
         </Card>
       </Box>
+
+      {/* Pinned Leads Widget */}
+      <Card sx={{ borderRadius: 1 }}>
+        <CardContent sx={{ p: 3 }}>
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+            <PushPin sx={{ color: "primary.main" }} />
+            <Typography sx={{ fontWeight: 900 }}>Pinned Leads</Typography>
+          </Stack>
+          {pinnedLeads.length > 0 ? (
+            <List>
+              {pinnedLeads.map((lead) => (
+                <ListItemButton
+                  key={lead.lead_id}
+                  onClick={() => setFocusedLead(lead)}
+                  sx={{
+                    borderRadius: 1,
+                    border: "1px solid rgba(15, 23, 42, 0.08)",
+                    mb: 1,
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <PushPin fontSize="small" sx={{ color: "primary.main" }} />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={`${lead.first_name} ${lead.last_name}`}
+                    secondary={lead.company_name}
+                  />
+                </ListItemButton>
+              ))}
+            </List>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No pinned leads yet. Pin leads to keep them at the top of your dashboard!
+            </Typography>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Pipeline Chart and Priority Leads */}
       <Box

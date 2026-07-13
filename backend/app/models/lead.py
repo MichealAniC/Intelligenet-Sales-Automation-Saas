@@ -130,3 +130,4 @@ class Lead(Base):
     tasks = relationship("Task", back_populates="lead", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="lead", cascade="all, delete-orphan")
     import_batch = relationship("LeadImportBatch", back_populates="leads")
+    pinned_by = relationship("PinnedLead", back_populates="lead", cascade="all, delete-orphan")

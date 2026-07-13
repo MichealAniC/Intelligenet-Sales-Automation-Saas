@@ -25,6 +25,7 @@ import RoutingRules from "@/pages/RoutingRules";
 import Settings from "@/pages/Settings";
 import Tasks from "@/pages/Tasks";
 import Activities from "@/pages/Activities";
+import { FocusProvider } from "@/contexts/FocusContext";
 
 export default function App() {
   return (
@@ -61,7 +62,14 @@ export default function App() {
         />
 
         <Route element={<ProtectedRoute />}>
-          <Route path="/app" element={<AppShell />}>
+          <Route
+            path="/app"
+            element={
+              <FocusProvider>
+                <AppShell />
+              </FocusProvider>
+            }
+          >
             <Route index element={<Navigate to="/app/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="leads" element={<Leads />} />

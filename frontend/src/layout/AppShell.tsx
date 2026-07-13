@@ -6,7 +6,6 @@ import {
   Divider,
   Drawer,
   IconButton,
-  InputBase,
   List,
   ListItemButton,
   ListItemIcon,
@@ -42,6 +41,9 @@ import { useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/auth";
 import SalesPilotLogo from "@/assets/SalesPilot Logo.png";
+import GlobalSearchBar from "../components/layout/GlobalSearchBar";
+import { useFocus } from "@/contexts/FocusContext";
+import LeadFocusView from "@/components/dashboard/LeadFocusView";
 
 const drawerWidth = 272;
 
@@ -56,6 +58,7 @@ export default function AppShell() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
+  const { isFocusMode } = useFocus();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -204,21 +207,7 @@ export default function AppShell() {
               {nav.find((n) => activeHref === n.href)?.label ?? "SalesPilot AI"}
             </Typography>
 
-            <Box
-              sx={{
-                flex: 1,
-                display: "flex",
-                alignItems: "center",
-                border: "1px solid rgba(15, 23, 42, 0.12)",
-                borderRadius: 1,
-                px: 2,
-                py: 0.5,
-                bgcolor: "rgba(15, 23, 42, 0.02)",
-                maxWidth: 520,
-              }}
-            >
-              <InputBase placeholder="Search leads, companies, reps..." fullWidth />
-            </Box>
+            <GlobalSearchBar />
           </Stack>
 
           <Stack direction="row" alignItems="center" spacing={1}>
@@ -311,7 +300,7 @@ export default function AppShell() {
           minHeight: "100vh",
         }}
       >
-        <Outlet />
+        {isFocusMode ? <LeadFocusView /> : <Outlet />}
       </Box>
     </Box>
   );

@@ -76,6 +76,7 @@ class User(Base):
     )
     tasks = relationship("Task", back_populates="assigned_user", cascade="all, delete-orphan")
     activities = relationship("Activity", back_populates="user", cascade="all, delete-orphan")
+    pinned_leads = relationship("PinnedLead", back_populates="user", cascade="all, delete-orphan")
 
     @property
     def organization_name(self) -> str | None:

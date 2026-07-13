@@ -19,6 +19,8 @@ import {
   EmailOutlined,
   EventOutlined,
   NoteOutlined,
+  PushPin,
+  PushPinOutlined,
   RocketLaunchOutlined,
   TrendingUpOutlined,
   AccessTimeOutlined,
@@ -28,6 +30,7 @@ import { api, getLeadActivities, createActivity, updateLead } from "@/api/http";
 import type { LeadIntelligenceDetail, LeadStatus, ActivityType, ActivityOutcome, LeadLifecycleState, ActivityPublic } from "@/api/types";
 import ScoreChip from "@/components/ScoreChip";
 import { useAuthStore } from "@/stores/auth";
+import { useFocus } from "@/contexts/FocusContext";
 
 const PIPELINE_STAGES: LeadStatus[] = ["New", "Contacted", "Qualified", "Unqualified", "Converted", "Archived"];
 
@@ -68,6 +71,7 @@ export default function LeadDetail() {
   const { leadId } = useParams();
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
+  const { pinnedLeads, pinLead, unpinLead } = useFocus();
 
   const [data, setData] = useState<LeadIntelligenceDetail | null>(null);
   const [activities, setActivities] = useState<ActivityPublic[]>([]);
@@ -259,6 +263,7 @@ export default function LeadDetail() {
 
   const lead = data?.lead;
   const currentStatusIdx = lead ? PIPELINE_STAGES.indexOf(lead.lead_status) : -1;
+  const isPinned = lead ? pinnedLeads.some((l) => l.lead_id === lead.lead_id) : false;
 
   // Combined timeline of activities and events
   const combinedTimeline = useMemo(() => {
@@ -292,6 +297,22 @@ export default function LeadDetail() {
           <Typography color="text.secondary">{leadId}</Typography>
         </Stack>
         <Stack direction="row" spacing={1}>
+          <Button
+            variant={isPinned ? "contained" : "outlined"}
+            color={isPinned ? "primary" : "inherit"}
+            startIcon={isPinned ? <PushPin /> : <PushPinOutlined />}
+            onClick={() => {
+              if (lead) {
+                if (isPinned) {
+                  unpinLead(lead.lead_id);
+                } else {
+                  pinLead(lead);
+                }
+              }
+            }}
+          >
+            {isPinned ? "Unpin" : "Pin"}
+          </Button>
           <Button variant="outlined" onClick={() => navigate("/app/leads")}>
             Back to Leads
           </Button>

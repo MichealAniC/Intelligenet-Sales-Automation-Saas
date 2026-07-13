@@ -473,3 +473,8 @@ export interface AnalyticsOverview {
   leads_by_source: Record<string, number>;
   leads_by_tier: Record<string, number>;
 }
+
+export interface SearchResults {
+  leads: LeadPublic[];
+  sales_team: UserPublic[];
+}

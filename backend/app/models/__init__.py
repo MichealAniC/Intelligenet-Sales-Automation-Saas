@@ -29,6 +29,7 @@ from app.models.organization import Organization
 from app.models.user import User
 from app.models.task import Task
 from app.models.activity import Activity
+from app.models.pinned_lead import PinnedLead
 
 __all__ = [
     "AssignmentStatus",
@@ -60,4 +61,5 @@ __all__ = [
     "Activity",
     "ActivityType",
     "ActivityOutcome",
+    "PinnedLead",
 ]
