@@ -11,6 +11,7 @@ import {
 import { Bar, Doughnut } from "react-chartjs-2";
 import { Alert, Box, Card, CardContent, Divider, Stack, Typography, List, ListItemButton, ListItemText, ListItemIcon } from "@mui/material";
 import { AutoAwesomeOutlined, InsightsOutlined, LocalFireDepartmentOutlined, TrendingUpOutlined, PushPin } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
 import { api } from "@/api/http";
 import type { DashboardOverview, LeadPublic } from "@/api/types";
 import StatCard from "@/components/StatCard";
@@ -32,10 +33,11 @@ export default function Dashboard() {
 }
 
 function AdminDashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { pinnedLeads, setFocusedLead } = useFocus();
+  const { pinnedLeads } = useFocus();
 
   const counts = useMemo(() => {
     return {
@@ -145,24 +147,28 @@ function AdminDashboard() {
           value={loading ? "…" : String(data?.total_leads ?? 0)}
           icon={<TrendingUpOutlined color="action" />}
           helper="Workspace"
+          onClick={() => navigate('/app/leads')}
         />
         <StatCard
           label="Hot leads"
           value={loading ? "…" : String(counts.Hot)}
-          icon={<LocalFireDepartmentOutlined sx={{ color: "warning.main" }} />}
+          icon={<LocalFireDepartmentOutlined sx={{ color: "error.main" }} />}
           helper="Requires immediate follow-up"
+          onClick={() => navigate('/app/leads?tier=Hot')}
         />
         <StatCard
           label="Warm leads"
           value={loading ? "…" : String(counts.Warm)}
           icon={<InsightsOutlined color="action" />}
           helper="Standard follow-up"
+          onClick={() => navigate('/app/leads?tier=Warm')}
         />
         <StatCard
           label="Cold leads"
           value={loading ? "…" : String(counts.Cold)}
           icon={<InsightsOutlined color="action" />}
           helper="Nurture workflow"
+          onClick={() => navigate('/app/leads?tier=Cold')}
         />
       </Box>
 
@@ -213,7 +219,7 @@ function AdminDashboard() {
               {pinnedLeads.map((lead) => (
                 <ListItemButton
                   key={lead.lead_id}
-                  onClick={() => setFocusedLead(lead)}
+                  onClick={() => navigate(`/app/leads/${lead.lead_id}`)}
                   sx={{
                     borderRadius: 1,
                     border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -284,11 +290,15 @@ function AdminDashboard() {
                     direction="row"
                     alignItems="center"
                     justifyContent="space-between"
+                    onClick={() => navigate(`/app/leads/${e.lead_id}`)}
                     sx={{
                       p: 1.5,
                       borderRadius: 1,
                       border: "1px solid rgba(15, 23, 42, 0.08)",
                       bgcolor: "rgba(255, 255, 255, 0.7)",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s ease-in-out",
+                      "&:hover": { bgcolor: "rgba(248, 250, 252)" },
                     }}
                   >
                     <Stack spacing={0}>

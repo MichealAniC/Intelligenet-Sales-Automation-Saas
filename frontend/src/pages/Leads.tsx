@@ -13,7 +13,7 @@ import {
   Typography,
 } from "@mui/material";
 import { DataGrid, type GridColDef, type GridSortModel } from "@mui/x-data-grid";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "@/api/http";
 import type {
   AutoAssignmentResponse,
@@ -35,20 +35,34 @@ const tierPriority: Record<string, number> = {
 export default function Leads() {
   const user = useAuthStore((s) => s.user);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
+  // Initialize state from URL search params
   const [items, setItems] = useState<LeadSummaryItem[]>([]);
   const [total, setTotal] = useState(0);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState("");
-  const [pageSize, setPageSize] = useState(50);
-  const [page, setPage] = useState(0);
+  const [query, setQuery] = useState(searchParams.get("q") || "");
+  const [pageSize, setPageSize] = useState(parseInt(searchParams.get("pageSize") || "50"));
+  const [page, setPage] = useState(parseInt(searchParams.get("page") || "0"));
   const [autoAssigning, setAutoAssigning] = useState(false);
   const [autoAssignResult, setAutoAssignResult] = useState<string | null>(null);
-  const [tierFilter, setTierFilter] = useState<string>("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [lifecycleFilter, setLifecycleFilter] = useState<LeadLifecycleState | "">("");
+  const [tierFilter, setTierFilter] = useState<string>(searchParams.get("tier") || "");
+  const [statusFilter, setStatusFilter] = useState<string>(searchParams.get("status") || "");
+  const [lifecycleFilter, setLifecycleFilter] = useState<LeadLifecycleState | "">(searchParams.get("lifecycle") as LeadLifecycleState || "");
+
+  // Update URL when filters change
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams);
+    if (query) params.set("q", query); else params.delete("q");
+    if (page > 0) params.set("page", page.toString()); else params.delete("page");
+    if (pageSize !== 50) params.set("pageSize", pageSize.toString()); else params.delete("pageSize");
+    if (tierFilter) params.set("tier", tierFilter); else params.delete("tier");
+    if (statusFilter) params.set("status", statusFilter); else params.delete("status");
+    if (lifecycleFilter) params.set("lifecycle", lifecycleFilter); else params.delete("lifecycle");
+    setSearchParams(params, { replace: true });
+  }, [query, page, pageSize, tierFilter, statusFilter, lifecycleFilter, searchParams, setSearchParams]);
 
   useEffect(() => {
     let mounted = true;
@@ -436,4 +450,3 @@ export default function Leads() {
     </Stack>
   );
 }
-

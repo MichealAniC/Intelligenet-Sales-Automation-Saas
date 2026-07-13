@@ -109,7 +109,7 @@ export default function LeadFocusView() {
                 : "default"
             }
           />
-          <ScoreChip score={85} category="Hot" />
+          <ScoreChip category="Hot" />
         </Stack>
       </Stack>
 

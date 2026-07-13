@@ -34,6 +34,7 @@ import {
   TrendingUpOutlined,
   PushPin,
 } from "@mui/icons-material";
+import { useNavigate } from "react-router-dom";
 import { getMyWorkload, getSalesOverview } from "@/api/http";
 import type { WorkloadDashboard, SalesDashboardOverview, DashboardRecentScore, LeadPublic } from "@/api/types";
 import StatCard from "@/components/StatCard";
@@ -43,11 +44,12 @@ import { useFocus } from "@/contexts/FocusContext";
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Tooltip, Legend);
 
 export default function SalesMemberDashboard() {
+  const navigate = useNavigate();
   const [workload, setWorkload] = useState<WorkloadDashboard | null>(null);
   const [salesOverview, setSalesOverview] = useState<SalesDashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { pinnedLeads, setFocusedLead } = useFocus();
+  const { pinnedLeads } = useFocus();
 
   useEffect(() => {
     let mounted = true;
@@ -118,24 +120,28 @@ export default function SalesMemberDashboard() {
           value={loading ? "…" : String(salesOverview?.total_assigned ?? 0)}
           icon={<TrendingUpOutlined color="action" />}
           helper="Total leads assigned"
+          onClick={() => navigate('/app/leads')}
         />
         <StatCard
-          label="Hot Leads"
+          label="Hot leads"
           value={loading ? "…" : String(salesOverview?.hot_count ?? 0)}
           icon={<LocalFireDepartmentOutlined sx={{ color: "error.main" }} />}
           helper="Priority leads to close"
+          onClick={() => navigate('/app/leads?tier=Hot')}
         />
         <StatCard
           label="Open Opportunities"
           value={loading ? "…" : String(salesOverview?.open_opportunities ?? 0)}
           icon={<SentimentSatisfiedOutlined sx={{ color: "success.main" }} />}
           helper="Active pipeline"
+          onClick={() => navigate('/app/leads?lifecycle=ACTIVE')}
         />
         <StatCard
           label="Closed Won"
           value={loading ? "…" : String(salesOverview?.closed_won_count ?? 0)}
           icon={<EmojiEventsOutlined sx={{ color: "success.main" }} />}
           helper="Successful conversions"
+          onClick={() => navigate('/app/leads?lifecycle=CLOSED_WON')}
         />
       </Box>
 
@@ -194,12 +200,14 @@ export default function SalesMemberDashboard() {
                 value={loading ? "…" : String(workload?.active_leads ?? 0)}
                 icon={<LocalFireDepartmentOutlined sx={{ color: "error.main" }} />}
                 helper="Currently working"
+                onClick={() => navigate('/app/leads?lifecycle=ACTIVE')}
               />
               <StatCard
                 label="Nurturing"
                 value={loading ? "…" : String(workload?.nurturing_leads ?? 0)}
                 icon={<AccessTimeOutlined color="action" />}
                 helper="On hold"
+                onClick={() => navigate('/app/leads?lifecycle=NURTURING')}
               />
             </Stack>
           </CardContent>
@@ -218,7 +226,7 @@ export default function SalesMemberDashboard() {
               {pinnedLeads.map((lead) => (
                 <ListItemButton
                   key={lead.lead_id}
-                  onClick={() => setFocusedLead(lead)}
+                  onClick={() => navigate(`/app/leads/${lead.lead_id}`)}
                   sx={{
                     borderRadius: 1,
                     border: "1px solid rgba(15, 23, 42, 0.08)",
@@ -284,11 +292,15 @@ export default function SalesMemberDashboard() {
                     direction="row"
                     alignItems="center"
                     justifyContent="space-between"
+                    onClick={() => navigate(`/app/leads/${lead.lead_id}`)}
                     sx={{
                       p: 1.5,
                       borderRadius: 1,
                       border: "1px solid rgba(15, 23, 42, 0.08)",
                       bgcolor: "rgba(255, 255, 255, 0.7)",
+                      cursor: "pointer",
+                      transition: "background-color 0.2s ease-in-out",
+                      "&:hover": { bgcolor: "rgba(248, 250, 252)" },
                     }}
                   >
                     <Stack spacing={0}>

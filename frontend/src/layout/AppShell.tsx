@@ -42,8 +42,6 @@ import type { ReactNode } from "react";
 import { useAuthStore } from "@/stores/auth";
 import SalesPilotLogo from "@/assets/SalesPilot Logo.png";
 import GlobalSearchBar from "../components/layout/GlobalSearchBar";
-import { useFocus } from "@/contexts/FocusContext";
-import LeadFocusView from "@/components/dashboard/LeadFocusView";
 
 const drawerWidth = 272;
 
@@ -58,7 +56,6 @@ export default function AppShell() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const clear = useAuthStore((s) => s.clear);
-  const { isFocusMode } = useFocus();
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -203,7 +200,7 @@ export default function AppShell() {
               <MenuIcon />
             </IconButton>
 
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, display: { xs: "none", md: "block" } }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 900, display: { xs: "none", md: "block" } }}>
               {nav.find((n) => activeHref === n.href)?.label ?? "SalesPilot AI"}
             </Typography>
 
@@ -300,7 +297,7 @@ export default function AppShell() {
           minHeight: "100vh",
         }}
       >
-        {isFocusMode ? <LeadFocusView /> : <Outlet />}
+        <Outlet />
       </Box>
     </Box>
   );

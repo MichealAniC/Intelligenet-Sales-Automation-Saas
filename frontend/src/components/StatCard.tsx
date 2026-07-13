@@ -1,4 +1,4 @@
-import { Card, CardContent, Stack, Typography } from "@mui/material";
+import { Card, CardContent, Stack, Typography, SxProps } from "@mui/material";
 import type { ReactNode } from "react";
 
 export default function StatCard(props: {
@@ -6,9 +6,19 @@ export default function StatCard(props: {
   value: string;
   icon?: ReactNode;
   helper?: string;
+  onClick?: () => void;
+  sx?: SxProps;
 }) {
   return (
-    <Card>
+    <Card
+      onClick={props.onClick}
+      sx={{
+        cursor: props.onClick ? "pointer" : "default",
+        transition: "box-shadow 0.2s ease-in-out",
+        "&:hover": props.onClick ? { boxShadow: "0 4px 12px rgba(0,0,0,0.15)" } : {},
+        ...props.sx,
+      }}
+    >
       <CardContent>
         <Stack direction="row" alignItems="flex-start" justifyContent="space-between" gap={2}>
           <Stack spacing={0.5}>
@@ -28,4 +38,3 @@ export default function StatCard(props: {
     </Card>
   );
 }
-

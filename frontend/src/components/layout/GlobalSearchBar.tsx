@@ -1,10 +1,10 @@
 import { useState, useEffect, useRef } from 'react';
-import { useFocus } from '../../contexts/FocusContext';
+import { useNavigate } from 'react-router-dom';
 import { getSearchResults } from '../../api/http';
 import type { LeadPublic } from '../../api/types';
 
 export default function GlobalSearchBar() {
-  const { setFocusedLead } = useFocus();
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<{ leads: LeadPublic[]; sales_team: any[] }>({ leads: [], sales_team: [] });
   const [isSearching, setIsSearching] = useState(false);
@@ -42,7 +42,7 @@ export default function GlobalSearchBar() {
   }, [query]);
 
   const handleLeadClick = (lead: LeadPublic) => {
-    setFocusedLead(lead);
+    navigate(`/app/leads/${lead.lead_id}`);
     setShowDropdown(false);
     setQuery('');
   };
