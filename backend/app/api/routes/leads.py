@@ -448,14 +448,26 @@ async def validate_lead_import(
                 )
             else:
                 seen.add(email_str.lower())
-            exists = get_lead_by_email(db, organization_id=user.organization_id, email=email_str)
-            if exists:
+            try:
+                exists = get_lead_by_email(db, organization_id=user.organization_id, email=email_str)
+                if exists:
+                    issues.append(
+                        LeadImportIssue(
+                            severity="warning",
+                            row=row_num,
+                            field="email",
+                            message="A lead with this email already exists in your workspace and will be updated on import.",
+                        )
+                    )
+            except Exception as e:
+                # Rollback the transaction to avoid poisoning subsequent operations
+                db.rollback()
                 issues.append(
                     LeadImportIssue(
                         severity="warning",
                         row=row_num,
                         field="email",
-                        message="A lead with this email already exists in your workspace and will be updated on import.",
+                        message=f"Could not check email existence: {e}",
                     )
                 )
 
@@ -607,6 +619,8 @@ async def import_leads(
                 )
             )
         except Exception as e:
+            # Rollback the transaction to avoid poisoning subsequent operations
+            db.rollback()
             if isinstance(e, ValidationError):
                 for err in e.errors():
                     loc = err.get("loc", ())
