@@ -2,7 +2,7 @@
 ### With Prescriptive Lead Scoring & Automated Workflow Execution
 
 ---
-Reop: https://github.com/MichealAniC/Intelligenet-Sales-Automation-Saas)
+Reop: https://github.com/MichealAniC/Intelligenet-Sales-Automation-Saas
 ## 1. Project Overview
 
 The **Intelligent Sales Automation SaaS** is a web-based system designed to automate lead management using machine learning.
